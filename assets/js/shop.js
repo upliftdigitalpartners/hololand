@@ -293,7 +293,8 @@ async function placeOrder(e) {
     saveBag(); renderBag();
     f.elements.note.value = '';
   } catch (err) {
-    coError(err.status && err.status < 500 ? err.message : 'Sorry, something went wrong and your order was not placed.', true);
+    // Show our own validation messages; anything else gets a plain apology and the WhatsApp fallback.
+    coError([400, 409, 429].includes(err.status) ? err.message : 'Sorry, we couldn’t place your order right now. Please try again in a minute, or order on WhatsApp.', true);
   } finally {
     btn.disabled = false; btn.innerHTML = '<span>Place order</span>';
   }
