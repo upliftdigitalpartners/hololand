@@ -61,6 +61,7 @@
       <a href="#shop" data-magnetic>Shop</a>
       <a href="#stylist" data-magnetic>AI Stylist</a>
       <a href="#story" data-magnetic>Story</a>
+      <a href="#faq" data-magnetic>Help</a>
     </nav>
     <div class="nav__right">
       <span class="weather-chip" data-weather hidden></span>
@@ -78,6 +79,7 @@
     <a href="#shop">Shop</a>
     <a href="#stylist">AI Stylist</a>
     <a href="#story">Story</a>
+    <a href="#faq">Help</a>
   </div>
 
   <main id="top">
@@ -192,29 +194,67 @@
       <div class="stylist__intro">
         <p class="eyebrow" data-reveal>04 — AI Stylist</p>
         <h2 class="h2" data-split>Tell us the occasion.<br /><em>We’ll dress it.</em></h2>
-        <p class="stylist__lede" data-reveal>Ask in English or বাংলা. The stylist knows the whole collection and today’s weather in <span data-city>Dhaka</span>, and can hear you too. Tap the mic.</p>
+        <p class="stylist__lede" data-reveal>Ask in English or বাংলা, by typing or with the mic. The stylist knows the whole collection, our delivery policies and today’s weather in <span data-city>Dhaka</span>. Upload a photo to match its colours, or let the gift finder pick something and write the card.</p>
         <div class="stylist__badges" data-reveal>
           <span class="badge"><i class="pulse"></i> <span data-stylist-mode>Offline matcher</span></span>
           <span class="badge" data-stylist-weather>Checking the weather…</span>
         </div>
       </div>
       <div class="chat" data-chat>
-        <div class="chat__log" data-chat-log aria-live="polite"></div>
-        <div class="chat__chips" data-chat-chips>
-          <button>Eid outfit for my husband</button>
-          <button>Wedding guest, evening</button>
-          <button>Gift for my sister under ৳2500</button>
-          <button>শীতের জন্য কিছু দেখান</button>
+        <div class="chat__tabs" role="tablist" data-studio-tabs>
+          <button role="tab" class="is-active" data-pane="chat">✦ Chat</button>
+          <button role="tab" data-pane="photo">Photo match</button>
+          <button role="tab" data-pane="gift">Gift finder</button>
         </div>
-        <form class="chat__form" data-chat-form>
-          <button type="button" class="chat__mic" data-mic aria-label="Speak" hidden>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-          </button>
-          <input type="text" data-chat-input placeholder="e.g. Something for a winter wedding in Sylhet…" autocomplete="off" maxlength="400" />
-          <button type="submit" class="chat__send" aria-label="Send">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </button>
-        </form>
+
+        <!-- Chat pane -->
+        <div class="pane is-active" data-pane-id="chat">
+          <div class="chat__log" data-chat-log aria-live="polite"></div>
+          <div class="chat__chips" data-chat-chips>
+            <button>Eid outfit for my husband</button>
+            <button>Wedding guest, evening</button>
+            <button>Do you have cash on delivery?</button>
+            <button>শীতের জন্য কিছু দেখান</button>
+            <button>How long does delivery take?</button>
+          </div>
+          <form class="chat__form" data-chat-form>
+            <button type="button" class="chat__mic" data-mic aria-label="Speak" hidden>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+            </button>
+            <input type="text" data-chat-input placeholder="Ask about outfits, sizes, delivery…" autocomplete="off" maxlength="400" />
+            <button type="submit" class="chat__send" aria-label="Send">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- Photo match pane -->
+        <div class="pane" data-pane-id="photo">
+          <div class="pane__scroll">
+            <label class="drop" data-drop>
+              <input type="file" accept="image/*" data-photo-input hidden />
+              <img data-photo-preview alt="" hidden />
+              <span class="drop__hint" data-photo-hint>
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg>
+                <strong>Drop a photo or tap to upload</strong>
+                <small>An outfit, your partner’s saree, a wedding card… we’ll match the colours.</small>
+              </span>
+            </label>
+            <div class="palette" data-palette hidden></div>
+            <div class="seg" data-match-mode hidden>
+              <button class="is-active" data-mode="match">Matching colours</button>
+              <button data-mode="complement">Complementary</button>
+            </div>
+            <p class="pane__note" data-photo-note></p>
+            <div class="recs recs--grid" data-photo-recs></div>
+            <p class="pane__privacy">Colours are read in your browser.<span data-photo-ai-note hidden> With AI on, a small copy is sent to Groq for a style note and isn’t stored.</span></p>
+          </div>
+        </div>
+
+        <!-- Gift finder pane -->
+        <div class="pane" data-pane-id="gift">
+          <div class="pane__scroll" data-gift></div>
+        </div>
       </div>
     </section>
 
@@ -237,6 +277,17 @@
         <img src="assets/img/mp-225-sm.webp" alt="" loading="lazy" />
       </div>
     </section>
+    <!-- FAQ -->
+    <section class="faq" id="faq">
+      <div class="section-head section-head--row">
+        <div>
+          <p class="eyebrow" data-reveal>06 — Help</p>
+          <h2 class="h2" data-split>Questions, <em>answered.</em></h2>
+        </div>
+        <a href="#stylist" class="btn btn--ghost" data-magnetic data-ask-bot><span>Ask the assistant</span> <b class="spark">✦</b></a>
+      </div>
+      <div class="faq__list" data-faq></div>
+    </section>
   </main>
 
   <!-- FOOTER -->
@@ -254,7 +305,7 @@
     </div>
     <div class="footer__cols">
       <div><h4>Shop</h4><a href="#shop" data-filter-link="men">Panjabi</a><a href="#shop" data-filter-link="women">Knitwear</a><a href="#lookbook">Lookbook</a></div>
-      <div><h4>Help</h4><a href="#stylist">AI Stylist</a><a href="#" data-whatsapp>WhatsApp us</a><span data-delivery-note></span></div>
+      <div><h4>Help</h4><a href="#faq">FAQ</a><a href="#stylist">AI Stylist</a><a href="#" data-whatsapp>WhatsApp us</a><span data-delivery-note></span></div>
       <div><h4>Follow</h4><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
     </div>
     <div class="footer__bottom">
@@ -276,11 +327,27 @@
         <span class="mono" data-qv-code></span>
         <h3 id="qv-title" data-qv-name></h3>
         <p class="qv__price" data-qv-price></p>
+        <div class="qv__lang" data-qv-lang hidden><button class="is-active" data-lang="en">EN</button><button data-lang="bn">বাংলা</button></div>
         <p class="qv__desc" data-qv-desc></p>
         <p class="qv__fabric"><span class="swatch" data-qv-swatch></span><span data-qv-fabric></span></p>
+        <div class="sizes-head"><span class="mono">Size</span><button class="link-btn" data-size-toggle>Find my size ✦</button></div>
         <div class="sizes" data-qv-sizes></div>
+        <form class="sizer" data-sizer hidden>
+          <div class="sizer__row">
+            <label>Height <span><input type="number" name="ft" min="4" max="7" placeholder="5" inputmode="numeric" /> ft <input type="number" name="in" min="0" max="11" placeholder="8" inputmode="numeric" /> in</span></label>
+            <label>Weight <span><input type="number" name="kg" min="30" max="160" placeholder="68" inputmode="numeric" required /> kg</span></label>
+          </div>
+          <div class="seg seg--sm" data-fit>
+            <button type="button" data-fitv="slim">Slim</button>
+            <button type="button" class="is-active" data-fitv="regular">Regular</button>
+            <button type="button" data-fitv="relaxed">Relaxed</button>
+          </div>
+          <button class="btn btn--ghost btn--wide btn--sm"><span>Suggest my size</span></button>
+          <p class="sizer__out" data-sizer-out aria-live="polite"></p>
+        </form>
         <button class="btn btn--solid btn--wide" data-qv-add><span>Add to bag</span></button>
         <p class="qv__note" data-delivery-note></p>
+        <div class="reviews" data-qv-reviews hidden></div>
       </div>
     </div>
   </div>
@@ -292,6 +359,10 @@
       <div class="drawer__head"><h3>Your bag</h3><button class="icon-btn" data-close-bag aria-label="Close">✕</button></div>
       <div class="drawer__items" data-bag-items></div>
       <div class="drawer__foot">
+        <div class="gift-note" data-gift-note hidden>
+          <div class="gift-note__head"><span class="mono">🎁 Gift message</span><button class="link-btn" data-gift-note-clear>Remove</button></div>
+          <p data-gift-note-text></p>
+        </div>
         <div class="drawer__total"><span>Subtotal</span><strong data-bag-total>৳0</strong></div>
         <button class="btn btn--solid btn--wide" data-checkout><span>Order on WhatsApp</span></button>
         <p class="drawer__note" data-delivery-note></p>
@@ -300,6 +371,7 @@
   </aside>
 
   <div class="toast" data-toast></div>
+  <a href="#stylist" class="fab" data-fab aria-label="Ask the Hololand assistant"><span>✦</span><b>Ask Hololand</b></a>
 
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>

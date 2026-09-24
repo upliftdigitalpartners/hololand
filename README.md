@@ -11,7 +11,10 @@ A static site for Hololand (men's panjabi and women's knitwear, Bangladesh). It 
 | Footer: interactive particle version of the H mark | Three.js points |
 | Smooth scroll, text reveals, marquee, magnetic buttons, custom cursor | GSAP + ScrollTrigger + SplitText, Lenis |
 | Shop grid, quick view, bag (saved in the browser), **checkout via WhatsApp** | Vanilla JS |
-| AI Stylist (English / বাংলা, voice input) | Groq via a free Cloudflare Worker, with an offline fallback |
+| AI studio: stylist chat + support bot (English / বাংলা, voice), photo colour match, gift finder with card message | Groq via a free Cloudflare Worker; every feature has an offline fallback |
+| Size advisor in every product's quick view | Size chart + Groq |
+| Reviews with AI summaries, FAQ section (with Google FAQ markup), floating "Ask Hololand" button | Vanilla JS |
+| Owner tools (`admin.html`): product copy generator (EN/BN, SEO, Facebook, Instagram) and review summarizer | Groq, protected by an admin token |
 | Live Dhaka weather in the nav and the stylist | Open-Meteo (free, no key) |
 
 All libraries are vendored in `assets/vendor/` (no CDN dependency). Fonts come from Google Fonts.
@@ -29,7 +32,7 @@ python3 -m http.server 8000
 
 1. Merge to `main`.
 2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. The workflow in `.github/workflows/pages.yml` publishes only `index.html` and `assets/`. The large originals in `/photos` are not deployed.
+3. The workflow in `.github/workflows/pages.yml` publishes only `index.html`, `admin.html` and `assets/`. The large originals in `/photos` are not deployed.
 
 The site will be at `https://<org>.github.io/hololand/`.
 
@@ -40,20 +43,15 @@ The site will be at `https://<org>.github.io/hololand/`.
 - **New photos:** put the original in `/photos`, add a line in `scripts/optimize-images.py`, then run `pip install pillow && python3 scripts/optimize-images.py`.
 - The story text and stats ("64 districts" etc.) are in `index.html`. Check they're accurate for the business.
 
-## Turn on the Groq AI stylist
+## Turn on the Groq AI
 
-The stylist already works offline with a keyword matcher that understands English, Bangla and Banglish. To make it a real LLM:
+👉 **Follow [SETUP-GROQ.md](SETUP-GROQ.md)**, a click-by-click guide using only the browser (about 20 minutes, free).
 
-A GitHub Pages site is public, so **the Groq key must never go in the site code**. A free Cloudflare Worker keeps it secret:
+In short: the Groq key lives in a free Cloudflare Worker (`worker/src/index.js`), never in the site. You then paste the Worker's address into `stylistEndpoint` in `assets/js/config.js`.
 
-```bash
-cd worker
-npx wrangler login
-npx wrangler secret put GROQ_API_KEY      # paste your key
-# edit ALLOWED_ORIGINS and CATALOG_URL in wrangler.toml to your Pages URL
-npx wrangler deploy
-```
+## Placeholder content to review
 
-Put the printed URL (e.g. `https://hololand-stylist.<you>.workers.dev`) into `stylistEndpoint` in `assets/js/config.js`. The badge changes to **Live · Groq** and the mic starts using Groq Whisper, which understands spoken Bangla.
-
-The Worker only accepts requests from your site's origin, trims history, caps output tokens, and only returns product IDs that exist in the catalogue. Models: `openai/gpt-oss-120b` for chat and `whisper-large-v3` for speech (change them in `wrangler.toml`).
+- `assets/data/products.json`: prices, names, descriptions
+- `assets/data/faq.json`: delivery charges, times, exchange policy (**the support bot answers from this file**)
+- `assets/data/sizes.json`: size chart measurements (the size advisor uses them)
+- `assets/data/reviews.json`: empty on purpose; add only real reviews through `admin.html`

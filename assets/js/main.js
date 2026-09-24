@@ -1,6 +1,9 @@
 import { CONFIG } from './config.js';
 import { initShop, setFilter, openQuickView, money, img } from './shop.js';
 import { initStylist } from './stylist.js';
+import { initPhotoMatch } from './photo-match.js';
+import { initGift } from './gift.js';
+import { initFaq } from './faq.js';
 
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
 gsap.registerPlugin(ScrollTrigger, SplitText);
@@ -78,7 +81,11 @@ $('[data-newsletter]').addEventListener('submit', (e) => {
 /* ---------------- Nav ---------------- */
 const nav = $('.nav');
 let lastY = 0;
+const fab = $('[data-fab]');
 function onScrollNav(y) {
+  const st = $('#stylist');
+  const r = st.getBoundingClientRect();
+  fab.classList.toggle('is-visible', y > innerHeight * 1.5 && (r.bottom < 0 || r.top > innerHeight));
   nav.classList.toggle('is-scrolled', y > 40);
   nav.classList.toggle('is-hidden', y > lastY && y > 400 && !document.body.classList.contains('menu-open'));
   lastY = y;
@@ -289,6 +296,9 @@ async function boot() {
   const products = await productsReq;
   initShop(products, { onRender: animateGrid });
   initStylist(products, () => weather);
+  initPhotoMatch(products);
+  initGift(products);
+  initFaq().then(() => ScrollTrigger.refresh());
 
   await Promise.all([
     setupHero(products, (p) => progress(p * 0.9)),

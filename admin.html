@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Hololand Studio</title>
+  <link rel="icon" type="image/png" href="assets/img/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <style>
+    body { padding: 32px var(--gutter) 80px; max-width: 1200px; margin: 0 auto; }
+    h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6vw, 80px); line-height: 1; margin: 12px 0 8px; }
+    h1 em { color: var(--orange-2); }
+    .lede { color: var(--cream-2); max-width: 640px; margin: 0 0 28px; }
+    .panel { border: 1px solid var(--line-2); border-radius: 22px; padding: 22px; background: var(--ink-2); margin-bottom: 20px; }
+    .panel h2 { font-family: var(--serif); font-weight: 400; font-size: 32px; margin: 0 0 6px; }
+    .panel > p { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 14px; }
+    label.f { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); flex: 1; min-width: 200px; }
+    .f input, .f select, .f textarea { background: var(--ink); border: 1px solid var(--line-2); border-radius: 12px; padding: 11px 14px; color: var(--cream); outline: none; font: 14px var(--sans); }
+    .f textarea { min-height: 160px; resize: vertical; line-height: 1.5; }
+    .f input:focus, .f select:focus, .f textarea:focus { border-color: var(--orange); }
+    .status { font-size: 13px; color: var(--muted); margin: 8px 0 0; min-height: 1.2em; }
+    .status.ok { color: #43d17a; } .status.err { color: #ff7a6b; }
+    .out { display: grid; gap: 12px; margin-top: 16px; }
+    .out-card { border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; grid-template-columns: 70px 1fr; gap: 16px; }
+    .out-card img { width: 70px; border-radius: 99px 99px 8px 8px; aspect-ratio: 2/3; object-fit: cover; }
+    .field { margin-bottom: 10px; }
+    .field b { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    .field b button { font-size: 11px; color: var(--orange-2); letter-spacing: 0; text-transform: none; }
+    .field div { white-space: pre-wrap; font-size: 14px; color: var(--cream-2); }
+    .tabs { margin-bottom: 20px; }
+    [data-tab-pane] { display: none; } [data-tab-pane].is-active { display: block; }
+    .existing { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+    .help { font-size: 12px; color: var(--muted); }
+    code { background: var(--ink); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <a href="./" class="nav__brand"><svg class="brandmark" viewBox="0 0 345 400"><polygon class="m-a" points="0,0 105,0 105,140 0,212" /><polygon class="m-b" points="0,245 215,98 215,300 110,300 110,400 0,400" /><rect class="m-c" x="238" y="0" width="107" height="400" /></svg><span>Hololand</span></a>
+  <h1>Studio <em>tools</em></h1>
+  <p class="lede">Owner-only AI tools, powered by Groq through your Worker. Nothing here changes the live site by itself: download the updated JSON file, then upload it to <code>assets/data/</code> on GitHub.</p>
+
+  <section class="panel">
+    <h2>Connection</h2>
+    <p>Your admin token is the <code>ADMIN_TOKEN</code> secret you set on the Worker. It stays in this browser tab only.</p>
+    <div class="row">
+      <label class="f">Worker URL <input data-url placeholder="https://hololand-ai.your-name.workers.dev" /></label>
+      <label class="f">Admin token <input data-token type="password" placeholder="••••••••" /></label>
+      <button class="btn btn--ghost btn--sm" data-test><span>Test connection</span></button>
+    </div>
+    <p class="status" data-conn-status></p>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button class="is-active" data-tab="copy">Product copy</button>
+    <button data-tab="reviews">Review summaries</button>
+  </div>
+
+  <section class="panel" data-tab-pane="copy">
+    <h2>Product copy generator</h2>
+    <p>Writes English + Bangla descriptions, SEO title/description, a Facebook post and an Instagram caption with hashtags.</p>
+    <div class="row">
+      <label class="f">Product <select data-copy-product></select></label>
+      <label class="f">Tone <input data-copy-tone value="elegant, modern, warm" /></label>
+      <button class="btn btn--solid btn--sm" data-copy-go><span>Generate</span></button>
+      <button class="btn btn--ghost btn--sm" data-copy-download disabled><span>Download products.json</span></button>
+    </div>
+    <p class="status" data-copy-status></p>
+    <div class="out" data-copy-out></div>
+  </section>
+
+  <section class="panel" data-tab-pane="reviews">
+    <h2>Review summarizer</h2>
+    <p>Paste real customer reviews (from Facebook comments, WhatsApp, etc.), one per line, as <code>Name | 5 | review text</code>. Name and rating are optional. The AI writes an honest summary shown on the product.</p>
+    <div class="row">
+      <label class="f">Product <select data-rev-product></select></label>
+    </div>
+    <p class="existing" data-rev-existing></p>
+    <label class="f"><span>New reviews</span><textarea data-rev-text placeholder="Rahim | 5 | Fabric is soft and the colour is exactly like the photo.&#10;Nusrat | 4 | Loved it, but size runs a little large."></textarea></label>
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn--solid btn--sm" data-rev-go><span>Add &amp; summarise</span></button>
+      <button class="btn btn--ghost btn--sm" data-rev-download disabled><span>Download reviews.json</span></button>
+    </div>
+    <p class="status" data-rev-status></p>
+    <div class="out" data-rev-out></div>
+  </section>
+
+  <div class="toast" data-toast></div>
+  <script type="module" src="assets/js/admin.js"></script>
+</body>
+</html>

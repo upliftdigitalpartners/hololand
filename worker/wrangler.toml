@@ -1,13 +1,15 @@
-name = "hololand-stylist"
+# Only needed if you deploy from the command line (npx wrangler deploy).
+# Using the Cloudflare dashboard instead? See SETUP-GROQ.md; you can ignore this file.
+name = "hololand-ai"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
 [vars]
-# Your GitHub Pages address (comma-separate several). Leave empty only while testing.
-ALLOWED_ORIGINS = "https://upliftdigitalpartners.github.io"
-CATALOG_URL = "https://upliftdigitalpartners.github.io/hololand/assets/data/products.json"
+SITE_URL = "https://upliftdigitalpartners.github.io/hololand"
 CHAT_MODEL = "openai/gpt-oss-120b"
+VISION_MODEL = "qwen/qwen3.6-27b"
 STT_MODEL = "whisper-large-v3"
 
-# The key is a secret, never put it here:
+# Secrets, never written here:
 #   npx wrangler secret put GROQ_API_KEY
+#   npx wrangler secret put ADMIN_TOKEN

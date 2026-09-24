@@ -1,0 +1,22 @@
+{
+  "_note": "Size charts used by the size advisor. Check these against your real pattern measurements (inches).",
+  "men": {
+    "label": "Panjabi (chest size)",
+    "sizes": [
+      { "size": "38", "chest": "36–37", "length": "40", "weight_kg": [0, 57] },
+      { "size": "40", "chest": "38–39", "length": "41", "weight_kg": [57, 66] },
+      { "size": "42", "chest": "40–41", "length": "42", "weight_kg": [66, 76] },
+      { "size": "44", "chest": "42–43", "length": "43", "weight_kg": [76, 87] },
+      { "size": "46", "chest": "44–46", "length": "44", "weight_kg": [87, 200] }
+    ]
+  },
+  "women": {
+    "label": "Knitwear",
+    "sizes": [
+      { "size": "S", "chest": "32–34", "length": "23", "weight_kg": [0, 50] },
+      { "size": "M", "chest": "35–37", "length": "24", "weight_kg": [50, 60] },
+      { "size": "L", "chest": "38–40", "length": "25", "weight_kg": [60, 72] },
+      { "size": "XL", "chest": "41–44", "length": "26", "weight_kg": [72, 200] }
+    ]
+  }
+}

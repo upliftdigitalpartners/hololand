@@ -1,16 +1,26 @@
 import { CONFIG } from './config.js';
-import { img, money, openQuickView } from './shop.js';
+import { money, openQuickView, recHTML } from './shop.js';
+import { endpoint, callAI, loadData, hasBangla, bnDigits } from './ai.js';
 
 const $ = (s, r = document) => r.querySelector(s);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const hasBangla = (s) => /[ঀ-৿]/.test(s);
-const bnDigits = (s) => s.replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d));
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
 let products = [];
 let byId = new Map();
+let faqs = [];
 let getWeather = () => null;
 const history = [];
-const endpoint = CONFIG.stylistEndpoint.replace(/\/$/, '');
+
+/* ---------------- Support answers (FAQ) ---------------- */
+function faqAnswer(text) {
+  const q = ` ${text.toLowerCase()} `;
+  let best = null, bestScore = 0;
+  for (const f of faqs) {
+    const score = f.keywords.reduce((s, k) => s + (q.includes(k) ? k.length : 0), 0);
+    if (score > bestScore) { best = f; bestScore = score; }
+  }
+  return best;
+}
 
 /* ---------------- Offline matcher ----------------
    Used when no Groq endpoint is configured, or if the call fails.
@@ -70,6 +80,9 @@ function localStylist(text) {
     .map((x) => x.p);
 
   const bn = hasBangla(text);
+  const faq = faqAnswer(text);
+  const shopping = intents.some((i) => i !== 'gift') || colors.length || budget;
+  if (faq && !shopping) return { reply: bn ? faq.a_bn : faq.a, products: [] };
   const occasion = intents.find((i) => ['eid', 'wedding', 'haldi', 'winter', 'office', 'jummah', 'evening', 'casual', 'gift'].includes(i));
   const names = { eid: ['Eid', 'ঈদের'], wedding: ['a wedding', 'বিয়ের'], haldi: ['a holud', 'গায়ে হলুদের'], winter: ['winter', 'শীতের'], office: ['the office', 'অফিসের'], jummah: ['Jummah', 'জুম্মার'], evening: ['an evening out', 'সন্ধ্যার দাওয়াতের'], casual: ['everyday wear', 'প্রতিদিনের'], gift: ['a gift', 'উপহারের'] };
 
@@ -93,16 +106,10 @@ function localStylist(text) {
 /* ---------------- Groq (through the Worker) ---------------- */
 async function remoteStylist() {
   const w = getWeather();
-  const res = await fetch(`${endpoint}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages: history.slice(-10),
-      context: { weather: w ? `${CONFIG.city.name}: ${Math.round(w.temp)}°C, ${w.desc}` : null, date: new Date().toDateString() },
-    }),
+  const data = await callAI('/chat', {
+    messages: history.slice(-10),
+    context: { weather: w ? `${CONFIG.city.name}: ${Math.round(w.temp)}°C, ${w.desc}` : null, date: new Date().toDateString() },
   });
-  if (!res.ok) throw new Error(`stylist ${res.status}`);
-  const data = await res.json();
   return { reply: data.reply || '', products: (data.products || []).filter((id) => byId.has(id)).slice(0, 4) };
 }
 
@@ -122,10 +129,7 @@ function addRecs(ids) {
   if (!ids.length) return;
   const wrap = document.createElement('div');
   wrap.className = 'recs';
-  wrap.innerHTML = ids.map((id) => {
-    const p = byId.get(id);
-    return `<button class="rec" data-rec="${p.id}" data-cursor="View"><img src="${img(p.images[0])}" alt="${esc(p.name)}" loading="lazy" /><div><strong>${esc(p.name)}</strong><span>${money(p.price)}</span></div></button>`;
-  }).join('');
+  wrap.innerHTML = ids.map((id) => recHTML(byId.get(id))).join('');
   $('[data-chat-log]').append(wrap);
   scrollLog();
 }
@@ -201,19 +205,35 @@ function initMic(input) {
   }
 }
 
-export function initStylist(list, weatherGetter) {
+/* ---------------- Studio tabs ---------------- */
+export function showPane(name) {
+  $$('[data-studio-tabs] button').forEach((b) => b.classList.toggle('is-active', b.dataset.pane === name));
+  $$('[data-pane-id]').forEach((p) => p.classList.toggle('is-active', p.dataset.paneId === name));
+}
+
+export async function initStylist(list, weatherGetter) {
   products = list;
   byId = new Map(list.map((p) => [p.id, p]));
   getWeather = weatherGetter;
+  faqs = (await loadData('faq')).faq || [];
 
   const modeEl = $('[data-stylist-mode]');
   if (endpoint) { modeEl.textContent = 'Live · Groq'; $('.stylist .pulse').classList.add('is-live'); }
 
-  addMsg('bot', 'Assalamu alaikum! I’m the Hololand stylist ✦ Tell me who you’re shopping for, the occasion and a budget, and I’ll put together some picks.');
+  addMsg('bot', 'Assalamu alaikum! I’m the Hololand assistant ✦ Ask me for outfit ideas (who it’s for, the occasion, a budget) or about delivery, payment, sizes and exchanges.');
 
   const input = $('[data-chat-input]');
   $('[data-chat-form]').addEventListener('submit', (e) => { e.preventDefault(); const v = input.value; input.value = ''; ask(v); });
   $('[data-chat-chips]').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) ask(b.textContent); });
-  $('[data-chat-log]').addEventListener('click', (e) => { const r = e.target.closest('[data-rec]'); if (r) openQuickView(r.dataset.rec); });
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-rec]');
+    if (r) { openQuickView(r.dataset.rec); return; }
+    const tab = e.target.closest('[data-studio-tabs] button');
+    if (tab) showPane(tab.dataset.pane);
+    if (e.target.closest('[data-fab], [data-ask-bot]')) {
+      showPane('chat');
+      setTimeout(() => input.focus({ preventScroll: true }), 1400);
+    }
+  });
   initMic(input);
 }
