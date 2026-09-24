@@ -27,6 +27,9 @@ export class Orders extends DurableObject {
     // A double tap or a retry within 10 minutes returns the same order.
     const dup = this.sql.exec('SELECT id FROM orders WHERE phone = ? AND items = ? AND ts > ?', o.phone, o.items, o.ts - 600_000).toArray()[0];
     if (dup) return { id: dup.id, duplicate: true };
+    // Fake orders shouldn't be able to lock up stock: a phone can have at most 3 orders waiting for confirmation.
+    const open = this.sql.exec("SELECT COUNT(*) AS n FROM orders WHERE phone = ? AND status = 'new'", o.phone).toArray()[0].n;
+    if (open >= 3) return { tooMany: true };
     // Check and take stock in one go (a Durable Object runs one request at a time,
     // so two customers can never both buy the last piece).
     const items = JSON.parse(o.items);
