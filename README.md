@@ -15,7 +15,7 @@ A static site for Hololand (men's panjabi and women's knitwear, Bangladesh). It 
 | AI studio: stylist chat + support bot (English / বাংলা, voice), photo colour match, gift finder with card message | Groq via a free Cloudflare Worker; every feature has an offline fallback |
 | Size advisor in every product's quick view | Size chart + Groq |
 | Reviews with AI summaries, FAQ section (with Google FAQ markup), floating "Ask Hololand" button | Vanilla JS |
-| Admin (`admin.html`, hidden link on the footer ©): password login; edit prices, products and photos, site texts, announcement bar, store info, FAQ and reviews; AI copywriting; one-click **Publish** commits to this repo | Cloudflare Worker + GitHub API |
+| Admin (`admin.html`, hidden link on the footer ©): password login; edit prices, products and photos, categories (with their own sizes), site texts, announcement bar, store info, FAQ and reviews; AI copywriting; one-click **Publish** commits to this repo | Cloudflare Worker + GitHub API |
 | Live Chittagong weather in the nav and the stylist | Open-Meteo (free, no key) |
 | Checkout form (name, mobile, area, address, COD or bKash) with delivery charges; orders land in the admin's **Orders** tab (status, notes, WhatsApp/call the customer). WhatsApp ordering still available | Cloudflare Worker + Durable Object |
 | Visitor stats in the admin (visitors, products, sources, devices, cities, bag adds, orders; no cookies, no IPs stored) | Cloudflare Worker + Durable Object (free tier) |

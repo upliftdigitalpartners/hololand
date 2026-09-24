@@ -1,15 +1,19 @@
 // Shared chrome (header, menus, footer, bag, quick view…) injected into every page,
 // so it is written once. Each page's HTML only holds its own <main> content.
 
-export const NAV = [
-  { key: 'shop', label: 'Shop', href: 'shop.html' },
-  { key: 'men', label: 'Men', href: 'shop.html?cat=men' },
-  { key: 'women', label: 'Women', href: 'shop.html?cat=women' },
-  { key: 'lookbook', label: 'Lookbook', href: 'lookbook.html' },
-  { key: 'stylist', label: 'Stylist', href: 'stylist.html' },
-  { key: 'story', label: 'Story', href: 'story.html' },
-  { key: 'help', label: 'Help', href: 'help.html' },
-];
+import { categories, catOf, groupsInUse, GROUPS, groupUrl, catUrl } from './categories.js';
+
+/** Header links: Shop, one link per section (Men, Women, Kids…), then the other pages. */
+export function navItems() {
+  return [
+    { key: 'shop', label: 'Shop', href: 'shop.html' },
+    ...groupsInUse().filter((g) => g !== 'all').map((g) => ({ key: g, label: GROUPS[g], href: groupUrl(g) })),
+    { key: 'lookbook', label: 'Lookbook', href: 'lookbook.html' },
+    { key: 'stylist', label: 'Stylist', href: 'stylist.html' },
+    { key: 'story', label: 'Story', href: 'story.html' },
+    { key: 'help', label: 'Help', href: 'help.html' },
+  ];
+}
 
 const MARK = `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="mark" viewBox="0 0 345 400">
@@ -22,8 +26,24 @@ const BAG_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" st
 
 function activeKey(page) {
   if (page !== 'shop') return page;
-  const cat = new URLSearchParams(location.search).get('cat');
-  return cat === 'men' || cat === 'women' ? cat : 'shop';
+  const q = new URLSearchParams(location.search);
+  if (GROUPS[q.get('group')]) return q.get('group');
+  return q.get('cat') ? catOf(q.get('cat')).group : 'shop';
+}
+
+const navLinks = (active) => navItems().map((n) => `<a href="${n.href}" class="${n.key === active ? 'is-active' : ''}" ${n.key === active ? 'aria-current="page"' : ''}>${n.label}</a>`).join('');
+const menuLinks = (active) => navItems().map((n, i) => `<a href="${n.href}" class="${n.key === active ? 'is-active' : ''}"><small>${String(i + 1).padStart(2, '0')}</small>${n.label}</a>`).join('');
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const footerShop = () => categories().map((c) => `<a href="${catUrl(c.id)}">${esc(c.name)}</a>`).join('') + '<a href="lookbook.html">Lookbook</a>';
+
+/** Rebuilds the category links once the admin's category list has loaded. */
+export function refreshCategoryLinks(page, active = activeKey(page)) {
+  const nav = document.querySelector('.nav__links');
+  if (nav) nav.innerHTML = navLinks(active);
+  const menu = document.querySelector('.mobile-menu__links');
+  if (menu) menu.innerHTML = menuLinks(active);
+  const shop = document.querySelector('[data-footer-shop]');
+  if (shop) shop.innerHTML = `<h4>Shop</h4>${footerShop()}`;
 }
 
 function header(page) {
@@ -33,7 +53,7 @@ function header(page) {
   <header class="nav">
     <a href="./" class="nav__brand" aria-label="Hololand home"><svg class="brandmark"><use href="#mark" /></svg><span>Hololand</span></a>
     <nav class="nav__links" aria-label="Primary">
-      ${NAV.map((n) => `<a href="${n.href}" class="${n.key === active ? 'is-active' : ''}" ${n.key === active ? 'aria-current="page"' : ''}>${n.label}</a>`).join('')}
+      ${navLinks(active)}
     </nav>
     <div class="nav__right">
       <span class="weather-chip" data-weather hidden></span>
@@ -43,7 +63,7 @@ function header(page) {
   </header>
   <div class="mobile-menu" data-mobile-menu data-lenis-prevent>
     <nav class="mobile-menu__links">
-      ${NAV.map((n, i) => `<a href="${n.href}" class="${n.key === active ? 'is-active' : ''}"><small>0${i + 1}</small>${n.label}</a>`).join('')}
+      ${menuLinks(active)}
     </nav>
     <div class="mobile-menu__foot">
       <a href="#" data-whatsapp class="btn btn--ghost btn--sm"><span>WhatsApp us</span></a>
@@ -67,7 +87,7 @@ function footer() {
       </div>
     </div>
     <div class="footer__cols">
-      <div><h4>Shop</h4><a href="shop.html?cat=men">Men · Panjabi</a><a href="shop.html?cat=women">Women · Knitwear</a><a href="lookbook.html">Lookbook</a></div>
+      <div data-footer-shop><h4>Shop</h4>${footerShop()}</div>
       <div><h4>Help</h4><a href="help.html">FAQ &amp; delivery</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
       <div data-store-col hidden><h4>Visit us</h4><span data-store-address></span><span data-store-hours></span><a data-store-map target="_blank" rel="noopener" hidden>Open in Google Maps ↗</a></div>
       <div><h4>Follow</h4><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>

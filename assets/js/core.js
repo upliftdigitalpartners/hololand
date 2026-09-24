@@ -2,7 +2,7 @@
 // weather, scroll animations and branded page transitions.
 import { CONFIG } from './config.js';
 import { track } from './track.js';
-import { renderLayout } from './layout.js';
+import { renderLayout, refreshCategoryLinks } from './layout.js';
 import { initStore } from './shop.js';
 import { applyContent } from './content.js';
 
@@ -223,6 +223,7 @@ export async function boot(page, init) {
   try {
     const products = await productsReq;
     await applyContent(products).catch((err) => console.warn('content.json', err));
+    refreshCategoryLinks(page);
     applyStatic();
     initStore(products);
     track('view', page === 'product' ? { product: new URLSearchParams(location.search).get('id') || undefined } : {});

@@ -207,3 +207,8 @@ body.adm { background: var(--ink); min-height: 100vh; }
   .ocard__grid { grid-template-columns: 1fr; gap: 12px; }
 }
 .ocard__foot .link-btn { align-self: center; }
+
+/* Categories */
+.catcard__btns { display: flex; gap: 14px; align-items: center; }
+.catcard__btns .link-btn:disabled { opacity: .3; cursor: default; }
+.catcard input[readonly] { color: var(--muted); }

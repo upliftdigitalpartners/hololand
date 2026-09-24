@@ -132,6 +132,12 @@ async function loadData(env) {
   ]);
   cache.byId = new Map(p.products.filter((x) => !x.hidden).map((x) => [x.id, x]));
   cache.sizes = { men: (sz.men?.sizes || []).map((r) => String(r.size)), women: (sz.women?.sizes || []).map((r) => String(r.size)) };
+  // Sizes set per category in the admin win over the size charts.
+  cache.catNames = { men: "Men's panjabi", women: "Women's knitwear" };
+  for (const cat of Array.isArray(c.settings?.categories) ? c.settings.categories : []) {
+    if (Array.isArray(cat.sizes) && cat.sizes.length) cache.sizes[cat.id] = cat.sizes.map(String);
+    if (cat.name) cache.catNames[cat.id] = String(cat.name).slice(0, 60);
+  }
   const dl = c.settings?.delivery || {};
   const num = (v, d) => (Number.isFinite(parseInt(v, 10)) ? Math.max(0, parseInt(v, 10)) : d);
   cache.delivery = { inside: num(dl.inside, 70), outside: num(dl.outside, 130), freeOver: num(dl.freeOver, 5000) };
@@ -139,7 +145,7 @@ async function loadData(env) {
   cache.faq = f.faq || [];
   cache.ids = new Set(p.products.map((x) => x.id));
   cache.text = p.products.map((x) =>
-    `${x.id} | ${x.code} | ${x.name} | ${x.cat === 'men' ? "Men's panjabi" : "Women's knitwear"} | ${x.color} (${x.hex}) | ৳${x.price} | ${x.fabric} | tags: ${x.tags.join(', ')}`
+    `${x.id} | ${x.code} | ${x.name} | ${cache.catNames?.[x.cat] || x.cat} | ${x.color} (${x.hex}) | ৳${x.price} | ${x.fabric} | tags: ${x.tags.join(', ')}`
   ).join('\n');
   cache.faqText = cache.faq.map((x) => `Q: ${x.q}\nA: ${x.a}`).join('\n');
   const st = c.settings?.store || {};
@@ -171,14 +177,14 @@ async function groqJSON(env, { system, messages, model, maxTokens = 700, tempera
 }
 
 const OFF_TOPIC = {
-  en: 'Sorry, I can only help with Hololand: our panjabis and knitwear, outfit ideas, sizes, orders, delivery and the store. What are you shopping for?',
+  en: 'Sorry, I can only help with Hololand: our clothes, outfit ideas, sizes, orders, delivery and the store. What are you shopping for?',
   bn: 'দুঃখিত, আমি শুধু Hololand নিয়ে সাহায্য করতে পারি: পাঞ্জাবি, সোয়েটার, স্টাইল, সাইজ, অর্ডার, ডেলিভারি আর দোকানের তথ্য। আপনি কী খুঁজছেন?',
 };
 // Obvious attempts to change the assistant's role never reach Groq.
 const INJECTION_RE = /(ignore|disregard|forget|override)\b.{0,30}\b(instruction|rule|prompt|above|previous|prior)|system\s*prompt|your\s+(instructions|rules|prompt)|you\s+are\s+now|\bact\s+as\b|pretend\s+(to\s+be|you)|role[-\s]?play|jail\s*break|developer\s+mode|\bDAN\b/i;
 const hasBangla = (t) => /[\u0980-\u09FF]/.test(t);
 
-const BRAND = `You work for Hololand, a Bangladeshi clothing brand selling men's panjabis and women's winter knitwear. Warm, concise, specific. Never invent products, prices or policies.`;
+const BRAND = `You work for Hololand, a Bangladeshi clothing brand (panjabis, knitwear and the other categories listed in the catalogue). Warm, concise, specific. Never invent products, prices or policies.`;
 
 /* ---------------- public: stylist + support ---------------- */
 async function chat(request, env) {
@@ -291,7 +297,7 @@ async function gift(request, env) {
   const d = await loadData(env);
   const out = await groqJSON(env, {
     system: `${BRAND}
-Gift finder. Pick 3 catalogue ids within budget that suit the recipient, occasion and style (men's panjabi for male recipients, women's knitwear for female; either for "friend").
+Gift finder. Pick 3 catalogue ids within budget that suit the recipient, occasion and style (use the category column: men's categories for male recipients, women's for female; anything suitable for "friend").
 Then write a short, heartfelt gift card message (max 30 words) in English AND in natural Bangla (বাংলা script). No names; use the relationship.
 Catalogue:
 ${d.text}
@@ -426,7 +432,7 @@ function validateJson(path, text) {
       if (!/^[a-z0-9][a-z0-9-]{0,60}$/.test(p.id || '')) throw httpError(400, `Bad product id "${p.id}" (use lowercase letters, numbers and dashes)`);
       if (ids.has(p.id)) throw httpError(400, `Duplicate product id "${p.id}"`);
       ids.add(p.id);
-      if (!p.name || !(p.price > 0) || !['men', 'women'].includes(p.cat) || !Array.isArray(p.images) || !p.images.length) {
+      if (!p.name || !(p.price > 0) || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(p.cat || '') || !Array.isArray(p.images) || !p.images.length) {
         throw httpError(400, `Product "${p.id}" needs a name, price, category and at least one photo`);
       }
       const bad = (msg) => httpError(400, `Product "${p.id}": ${msg}`);
@@ -439,6 +445,21 @@ function validateJson(path, text) {
     }
   }
   if (path.endsWith('faq.json') && !Array.isArray(data.faq)) throw httpError(400, 'faq.json needs a "faq" list');
+  const cats = data.settings?.categories;
+  if (path.endsWith('content.json') && cats !== undefined) {
+    if (!Array.isArray(cats) || !cats.length || cats.length > 30) throw httpError(400, 'Categories: keep between 1 and 30');
+    const ids = new Set();
+    for (const c of cats) {
+      if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(c?.id || '') || ids.has(c.id)) throw httpError(400, `Category link "${c?.id}" is invalid or used twice`);
+      ids.add(c.id);
+      if (typeof c.name !== 'string' || !c.name.trim() || c.name.length > 60) throw httpError(400, 'Every category needs a name (up to 60 characters)');
+      if (!['men', 'women', 'kids', 'all'].includes(c.group)) throw httpError(400, `Category "${c.name}": pick a section`);
+      if (!Array.isArray(c.sizes) || c.sizes.length > 20 || !c.sizes.every((z) => typeof z === 'string' && /^[\w .+/-]{1,12}$/.test(z))) {
+        throw httpError(400, `Category "${c.name}": sizes must be short, like S, M, L or 38, 40 (letters, numbers, - / .)`);
+      }
+      for (const k of ['type', 'title', 'lede']) if (c[k] != null && (typeof c[k] !== 'string' || c[k].length > 300)) throw httpError(400, `Category "${c.name}": ${k} is too long`);
+    }
+  }
 }
 
 async function publish(request, env) {
@@ -561,7 +582,7 @@ async function placeOrder(request, env) {
     const p = byId.get(it?.id);
     if (!p) throw httpError(409, 'One of the items in your bag is no longer available. Please remove it and try again.');
     const size = String(it.size || '');
-    if (sizes[p.cat]?.length ? !sizes[p.cat].includes(size) : !/^[A-Z0-9]{1,4}$/.test(size)) throw httpError(400, `Please pick a size for ${p.name}.`);
+    if (sizes[p.cat]?.length ? !sizes[p.cat].includes(size) : !/^[\w .+/-]{1,12}$/.test(size)) throw httpError(400, `Please pick a size for ${p.name}.`);
     const qty = Math.round(Number(it.qty));
     if (!(qty >= 1 && qty <= 10)) throw httpError(400, 'Quantity must be between 1 and 10.');
     items.push({ id: p.id, code: p.code, name: p.name, size, qty, price: p.price });

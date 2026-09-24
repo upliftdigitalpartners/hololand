@@ -1,5 +1,6 @@
 import { boot, $, $$, reduced, lite, animateCards } from '../core.js';
 import { img, cardHTML, esc, money, productUrl } from '../shop.js';
+import { categories, catTitle, catUrl } from '../categories.js';
 
 // Old one-page links (hololandbd.com/#shop …) go to the new pages.
 const LEGACY = { '#shop': 'shop.html', '#lookbook': 'lookbook.html', '#stylist': 'stylist.html', '#story': 'story.html', '#faq': 'help.html' };
@@ -26,15 +27,31 @@ function fitHeroTitle() {
 boot('home', async ({ products, gsap, SplitText, lenis }) => {
   const byId = new Map(products.map((p) => [p.id, p]));
 
-  // Featured: a mix of both collections
-  const men = products.filter((p) => p.cat === 'men'), women = products.filter((p) => p.cat === 'women');
+  // Featured: a mix across the collections, taking turns
+  const cats = categories().filter((c) => products.some((p) => p.cat === c.id));
+  const pools = cats.map((c) => products.filter((p) => p.cat === c.id));
   const featured = [];
-  for (let i = 0; featured.length < 8 && (i < men.length || i < women.length); i++) {
-    if (men[i]) featured.push(men[i]);
-    if (i % 2 === 0 && women[i / 2]) featured.push(women[i / 2]);
-  }
+  for (let i = 0; featured.length < 8 && pools.some((pl) => pl[i]); i++) pools.forEach((pl) => pl[i] && featured.push(pl[i]));
   $('[data-featured]').innerHTML = featured.slice(0, 8).map(cardHTML).join('');
   animateCards($('[data-featured]'));
+
+  // One card per collection that has products
+  const COVER = { men: 'mp-187', women: 'wk-rose-1' };
+  const italicLast = (t) => { const w = esc(t).split(' '); return w.length > 1 ? `${w.slice(0, -1).join(' ')} <em>${w.at(-1)}</em>` : `<em>${w[0]}</em>`; };
+  $('[data-collections]').innerHTML = cats.map((c, i) => {
+    const list = products.filter((p) => p.cat === c.id);
+    const cover = list.find((p) => p.images.includes(COVER[c.id]))?.images.find((b) => b === COVER[c.id]) || list[0].images[0];
+    return `<a href="${catUrl(c.id)}" class="coll-card ${i % 2 ? 'coll-card--offset' : ''}" data-cursor="Explore">
+      <div class="coll-card__media arch"><img src="${img(cover, 'lg')}" alt="${esc(c.name)}" loading="lazy" data-parallax /></div>
+      <div class="coll-card__body">
+        <span class="mono">${list.length} style${list.length === 1 ? '' : 's'}</span>
+        <h3>${italicLast(catTitle(c))}</h3>
+        ${c.lede ? `<p>${esc(c.lede)}</p>` : ''}
+        <span class="link-arrow">Shop ${esc((c.type || c.name).toLowerCase())} <i>→</i></span>
+      </div>
+    </a>`;
+  }).join('');
+  if (cats.length !== 2) $('[data-collections-title]').innerHTML = cats.length === 1 ? 'The <em>collection.</em>' : 'Every story, <em>one thread.</em>';
 
   // Collection cards + teaser fan
   $$('.coll-card').forEach((card) => {

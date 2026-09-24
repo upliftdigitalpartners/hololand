@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { money, openQuickView, recHTML } from './shop.js';
 import { track } from './track.js';
+import { catOf } from './categories.js';
 import { endpoint, callAI, loadData, hasBangla, bnDigits } from './ai.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -88,10 +89,10 @@ function localStylist(text) {
   const cold = weather && weather.temp < 22;
 
   let cat = intents.includes('men') && !intents.includes('women') ? 'men' : intents.includes('women') && !intents.includes('men') ? 'women' : null;
-  if (!cat && intents.includes('winter')) cat = 'women';
+  if (!cat && intents.includes('winter') && products.some((p) => p.cat === 'women')) cat = 'women';
 
   const scored = products
-    .filter((p) => !cat || p.cat === cat)
+    .filter((p) => !cat || [cat, 'all'].includes(catOf(p.cat).group) || p.cat === cat)
     .filter((p) => !budget || p.price <= +budget)
     .map((p) => {
       let s = Math.random() * 0.4;

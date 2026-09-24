@@ -1,4 +1,5 @@
 import { boot, $, $$, animateCards } from '../core.js';
+import { catOf, catUrl, GROUPS } from '../categories.js';
 import { img, money, esc, safeHex, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady } from '../shop.js';
 import { sizerHTML } from '../layout.js';
 import { createSizer } from '../size.js';
@@ -45,12 +46,12 @@ boot('product', async ({ products, gsap }) => {
   await reviewsReady;
   setMeta(p);
 
-  const catName = p.cat === 'men' ? 'Men' : 'Women';
-  $('[data-crumb-cat]').textContent = catName;
-  $('[data-crumb-cat]').href = `shop.html?cat=${p.cat}`;
+  const cat = catOf(p.cat);
+  $('[data-crumb-cat]').textContent = cat.name;
+  $('[data-crumb-cat]').href = catUrl(p.cat);
   $('[data-crumb-name]').textContent = p.name;
-  // Header: highlight Men / Women
-  $$('.nav__links a, .mobile-menu__links a').forEach((a) => a.classList.toggle('is-active', a.getAttribute('href') === `shop.html?cat=${p.cat}`));
+  // Header: highlight this product's section (Men / Women / …)
+  $$('.nav__links a, .mobile-menu__links a').forEach((a) => a.classList.toggle('is-active', new URL(a.href).searchParams.get('group') === cat.group));
 
   // Gallery
   const main = $('[data-pdp-img]');
@@ -86,7 +87,7 @@ boot('product', async ({ products, gsap }) => {
   $('[data-pdp-swatch]').style.background = safeHex(p.hex);
   $('[data-pdp-colour]').textContent = p.color;
   $('[data-pdp-fabric]').textContent = p.fabric;
-  $('[data-pdp-type]').textContent = `${catName} · ${p.type}`;
+  $('[data-pdp-type]').textContent = `${GROUPS[cat.group] && cat.group !== 'all' ? `${GROUPS[cat.group]} · ` : ''}${p.type || cat.type}`;
   $('[data-pdp-ask]').href = askLink(p);
 
   // Sizes

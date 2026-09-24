@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { recHTML, money, setGiftNote, openBag, toast } from './shop.js';
 import { aiEnabled, callAI, esc } from './ai.js';
+import { catOf } from './categories.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -47,7 +48,7 @@ function pick() {
   const cat = who?.[2];
   const tags = [...(OCC_TAGS[answers.occasion] || []), answers.style];
   return products
-    .filter((p) => (!cat || p.cat === cat) && p.price <= +answers.budget)
+    .filter((p) => (!cat || [cat, 'all'].includes(catOf(p.cat).group)) && p.price <= +answers.budget)
     .map((p) => ({ p, s: tags.reduce((s, t) => s + (p.tags.includes(t) ? 1 : 0), 0) + Math.random() * 0.3 }))
     .sort((a, b) => b.s - a.s)
     .slice(0, 3)
