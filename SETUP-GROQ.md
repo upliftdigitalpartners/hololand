@@ -109,6 +109,26 @@ Publish needs a GitHub token that can only edit this one repository:
 
 ---
 
+## Step 7: Order alerts on your phone (Telegram, optional)
+
+Every new order can be sent to Telegram, so you hear about it even when the admin is closed. It's free.
+
+**Once, by whoever manages Cloudflare:**
+1. In Telegram, open **@BotFather**, send `/newbot`, and pick a name (e.g. *Hololand Orders*) and a username ending in `bot` (e.g. `HololandOrdersBot`).
+2. BotFather replies with a token like `123456789:AAH…`. Keep it private.
+3. Cloudflare → **Workers & Pages → hololand → Settings → Variables and Secrets** (the top section, not Build) → **Add** → type **Secret**, name `TELEGRAM_BOT_TOKEN`, value = the token → **Deploy**.
+4. Check: opening the Worker address shows `"telegram": true`.
+
+**Then, from the admin (no Cloudflare needed):**
+1. Admin → **Orders** → **📣 Phone alerts** → **+ Connect a phone**.
+2. Tap **Open @YourBot in Telegram**, then tap **Start** in Telegram.
+3. Back in the admin, tap **I tapped Start**. Telegram says “✅ Hololand order alerts are on”.
+4. Tap **Send a test alert** to check. To add a staff member, send them the link from step 2 (it works for 15 minutes). **Remove** stops alerts to a phone.
+
+Each alert has the order number, customer name, phone, address, items and total, and an **Open orders** button.
+
+---
+
 ## If something doesn't work
 
 | What you see | Fix |

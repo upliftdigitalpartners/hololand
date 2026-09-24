@@ -13,6 +13,7 @@
 - **Browser protections:** a Content-Security-Policy on every page (scripts only from this site; network calls only to the Worker and Open-Meteo), escaping of all shop data, and the admin refuses to load inside another site's frame.
 - **Visitor stats** are anonymous: no cookies, and no IP addresses, names or phone numbers are stored. A visitor is a hash that changes every day, so nobody can be followed over time. "Do not track" and bots are skipped, the `/track` endpoint is rate-limited to 60 events/minute per visitor, and only the logged-in admin can read the stats.
 - **Orders** (name, phone, address) are stored in a private Durable Object on the Worker, never in the public repo. Only the logged-in admin can list, change or delete them. The Worker re-checks every order: prices and delivery charges come from the live catalogue (not the browser), sizes and quantities are validated, repeats within 10 minutes are merged, bots are caught by a hidden field, and each visitor can send at most 8 order attempts a minute.
+- **Order alerts (optional)** send each new order, including the customer's name, phone and address, to the Telegram chats connected in the admin. Only someone holding a fresh one-time link from the logged-in admin can connect a chat; the bot token is a Worker secret.
 - **No payments on the site.** Orders go to WhatsApp, so no card or bKash details ever pass through it.
 
 ## Owner checklist (do these once)

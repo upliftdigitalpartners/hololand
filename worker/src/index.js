@@ -39,7 +39,7 @@ const cache = { at: 0, products: [], faq: [], text: '', faqText: '', ids: new Se
 const hits = new Map(); // best-effort per-IP rate limit (per Worker instance)
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const allowed = allowedOrigins(env);
     const okOrigin = allowed.length === 0 || allowed.includes(origin);
@@ -54,7 +54,7 @@ export default {
     const { pathname } = new URL(request.url);
     if (request.method === 'GET') {
       // Handy check after setup: open the Worker URL in a browser.
-      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS }, 200, cors);
+      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN }, 200, cors);
     }
     if (!okOrigin) return json({ error: 'origin not allowed' }, 403, cors);
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405, cors);
@@ -66,7 +66,7 @@ export default {
     }
     if (route === 'order') {
       if (await limited(request, env.ORDER_LIMIT)) return json({ error: 'Too many orders from this connection. Please wait a minute, or message us on WhatsApp.' }, 429, cors);
-      try { return json(await placeOrder(request, env), 200, cors); } catch (err) {
+      try { return json(await placeOrder(request, env, ctx), 200, cors); } catch (err) {
         console.error('order', err);
         return json({ error: err.status ? err.message : 'We could not save your order. Please try again, or order on WhatsApp.' }, err.status || 502, cors);
       }
@@ -76,10 +76,10 @@ export default {
     if (route === 'login') {
       try { return json(await login(request, env), 200, cors); } catch (err) { return json({ error: err.message }, err.status || 400, cors); }
     }
-    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete'].includes(route);
+    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts'].includes(route);
     if (admin && !(await isAdmin(request, env))) return json({ error: 'login required' }, 401, cors);
     if (!admin && !env.GROQ_API_KEY) return json({ error: 'GROQ_API_KEY is not set' }, 500, cors);
-    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder };
+    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts };
     if (!handlers[route]) return json({ error: 'not found' }, 404, cors);
     try {
       return json(await handlers[route](request, env), 200, cors);
@@ -558,7 +558,7 @@ function cleanText(v, max) {
   return String(v ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, max);
 }
 
-async function placeOrder(request, env) {
+async function placeOrder(request, env, ctx) {
   const stub = ordersStub(env);
   let b;
   try { b = JSON.parse((await request.text()).slice(0, 20_000)); } catch { throw httpError(400, 'Bad request'); }
@@ -595,7 +595,9 @@ async function placeOrder(request, env) {
     note: cleanText(b.note, 300), gift: cleanText(b.gift, 300),
     items: JSON.stringify(items), subtotal, delivery: fee, total: subtotal + fee,
   };
-  const { id } = await stub.create(order);
+  const { id, duplicate } = await stub.create(order);
+  // Phone alert to the shop (Telegram). Runs after the reply, never delays the customer.
+  if (!duplicate) ctx?.waitUntil(notifyOrder(env, stub, { ...order, id, items }).catch((err) => console.error('telegram', err)));
   return { id, subtotal, delivery: fee, total: order.total, items };
 }
 
@@ -617,4 +619,100 @@ async function deleteOrder(request, env) {
   const { id } = await request.json().catch(() => ({}));
   if (!/^HL-\d{6}-\d{3,}$/.test(id || '')) throw httpError(400, 'Bad order number');
   return ordersStub(env).remove(id);
+}
+
+/* ---------------- Telegram order alerts ----------------
+   The bot token is a Worker secret (TELEGRAM_BOT_TOKEN). Which chats get alerts is
+   stored in the Orders Durable Object and managed from the admin (Orders → Phone alerts). */
+const tgEsc = (v) => String(v ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const taka = (n) => `৳${Number(n || 0).toLocaleString('en-IN')}`;
+
+async function tg(env, method, body) {
+  const base = env.TELEGRAM_API || 'https://api.telegram.org';
+  const res = await fetch(`${base}/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!data.ok) throw httpError(502, `Telegram: ${data.description || res.status}`);
+  return data.result;
+}
+
+function adminLink(env) {
+  const origin = allowedOrigins(env).find((o) => o.startsWith('https://')) || '';
+  return origin ? `${origin}/admin.html` : null;
+}
+
+function orderText(o) {
+  const lines = [
+    `🛍️ <b>New order ${tgEsc(o.id)}</b>`,
+    '',
+    `<b>${tgEsc(o.name)}</b> · ${tgEsc(o.phone)}`,
+    `${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'} · ${o.payment === 'bkash' ? 'bKash' : 'Cash on delivery'}`,
+    tgEsc(o.address),
+    '',
+    ...o.items.map((l) => `• ${tgEsc(l.code)} ${tgEsc(l.name)} (${tgEsc(l.size)}) × ${l.qty} — ${taka(l.price * l.qty)}`),
+    `Delivery ${o.delivery ? taka(o.delivery) : 'free'} · <b>Total ${taka(o.total)}</b>`,
+  ];
+  if (o.note) lines.push('', `📝 ${tgEsc(o.note)}`);
+  if (o.gift) lines.push(`🎁 Gift card: “${tgEsc(o.gift)}”`);
+  return lines.join('\n');
+}
+
+async function notifyOrder(env, stub, order) {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+  const chats = (await stub.getKV('tg_chats')) || [];
+  const link = adminLink(env);
+  await Promise.all(chats.map((c) => tg(env, 'sendMessage', {
+    chat_id: c.id, text: orderText(order), parse_mode: 'HTML', disable_web_page_preview: true,
+    ...(link ? { reply_markup: { inline_keyboard: [[{ text: 'Open orders', url: link }]] } } : {}),
+  }).catch((err) => console.error('telegram chat', c.id, err.message))));
+}
+
+async function alerts(request, env) {
+  const { action, id } = await request.json().catch(() => ({}));
+  const stub = ordersStub(env);
+  if (!env.TELEGRAM_BOT_TOKEN) return { tokenSet: false, chats: [] };
+  const bot = await tg(env, 'getMe');
+  let chats = (await stub.getKV('tg_chats')) || [];
+
+  if (action === 'code') {
+    // A one-time code, so only people the admin invites can connect.
+    const code = [...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    await stub.setKV('tg_code', { code, exp: Date.now() + 15 * 60_000 });
+    return { bot: bot.username, link: `https://t.me/${bot.username}?start=${code}` };
+  }
+  if (action === 'connect') {
+    const pending = await stub.getKV('tg_code');
+    if (!pending || pending.exp < Date.now()) throw httpError(400, 'That link expired. Tap “Connect a phone” again.');
+    const updates = await tg(env, 'getUpdates', { limit: 100, allowed_updates: ['message'] });
+    const found = new Map();
+    for (const u of updates) {
+      const m = u.message;
+      if (m?.text && new RegExp(`^/start(@\\w+)?\\s+${pending.code}$`).test(m.text.trim())) {
+        const c = m.chat;
+        found.set(String(c.id), { id: c.id, name: String(c.title || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.username || 'Telegram').slice(0, 60) });
+      }
+    }
+    if (!found.size) throw httpError(404, `Not found yet. In Telegram, open @${bot.username}, tap Start, then try again.`);
+    for (const c of found.values()) {
+      if (!chats.some((x) => String(x.id) === String(c.id))) chats.push(c);
+      await tg(env, 'sendMessage', { chat_id: c.id, text: '✅ Hololand order alerts are on. New orders will appear here.' });
+    }
+    chats = chats.slice(-10);
+    await stub.setKV('tg_chats', chats);
+    await stub.setKV('tg_code', null);
+    await tg(env, 'getUpdates', { offset: Math.max(...updates.map((u) => u.update_id)) + 1, limit: 1 }).catch(() => {});
+  }
+  if (action === 'remove') {
+    chats = chats.filter((c) => String(c.id) !== String(id));
+    await stub.setKV('tg_chats', chats);
+  }
+  if (action === 'test') {
+    if (!chats.length) throw httpError(400, 'Connect a phone first.');
+    await notifyOrder(env, stub, {
+      id: 'HL-TEST-000', name: 'Test customer', phone: '01700000000', area: 'inside', payment: 'cod', address: 'This is a test alert from the admin',
+      items: [{ code: 'MP-000', name: 'Sample panjabi', size: '40', qty: 1, price: 3000 }], delivery: 70, total: 3070,
+    });
+  }
+  return { tokenSet: true, bot: bot.username, chats: chats.map((c) => ({ id: String(c.id), name: c.name })) };
 }

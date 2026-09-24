@@ -212,3 +212,14 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .catcard__btns { display: flex; gap: 14px; align-items: center; }
 .catcard__btns .link-btn:disabled { opacity: .3; cursor: default; }
 .catcard input[readonly] { color: var(--muted); }
+
+/* Telegram alerts */
+.alerts { margin-bottom: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--ink-2); }
+.alerts summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; font-weight: 600; font-size: 14px; list-style: none; }
+.alerts summary::-webkit-details-marker { display: none; }
+.alerts summary small { font-weight: 600; font-size: 12px; color: var(--orange-2); }
+.alerts__body { padding: 0 18px 16px; }
+.alerts__chats { display: grid; gap: 6px; margin-bottom: 12px; }
+.alerts__chat { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+.alerts__steps { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 10px; font-size: 14px; color: var(--cream-2); }
+.alerts__steps li::marker { color: var(--orange-2); font-weight: 700; }

@@ -107,6 +107,7 @@ async function start() {
   fillCatSelect($('[data-cat-filter]'), '', true);
   renderProducts(); renderCategories(); renderTexts(); renderFaq(); renderReviewsTab();
   loadOrders();
+  loadAlerts();
 }
 
 /* ---------------- tabs ---------------- */
@@ -828,6 +829,60 @@ setInterval(() => {
   loadOrders({ quiet: true });
 }, 60_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && token) loadOrders({ quiet: true }); });
+
+/* ---------------- Telegram alerts ---------------- */
+let alertsState = null;
+let invite = null; // the current “connect a phone” link, kept until it's used
+async function loadAlerts(action, extra = {}) {
+  const body = $('[data-alerts-body]');
+  try {
+    const r = await api('/admin/alerts', { action, ...extra });
+    if (r.link) { invite = r; renderAlerts(alertsState || { tokenSet: true, bot: r.bot, chats: [] }); return; }
+    if (action === 'connect') invite = null;
+    alertsState = r;
+    renderAlerts(r);
+    if (action === 'connect') toast('Phone connected ✓ Check Telegram');
+    if (action === 'test') toast('Test alert sent');
+  } catch (err) {
+    if (err.message === 'Signed out') return;
+    if (alertsState) { renderAlerts(alertsState); $('[data-alerts-err]').textContent = err.message; }
+    else body.innerHTML = `<p class="status err">${esc(err.message)}</p>`;
+  }
+}
+function renderAlerts(st) {
+  const body = $('[data-alerts-body]');
+  const sum = $('[data-alerts-summary]');
+  if (!st) return;
+  if (!st.tokenSet) {
+    sum.textContent = 'Off';
+    body.innerHTML = '<p class="hint">Not set up yet. Your developer adds one Telegram bot key in Cloudflare (see SETUP-GROQ.md, “Order alerts”). After that you can connect your phone here.</p>';
+    return;
+  }
+  sum.textContent = st.chats.length ? `On · ${st.chats.length} phone${st.chats.length > 1 ? 's' : ''}` : 'No phone connected';
+  body.innerHTML = `
+    <p class="hint">Every new order is sent to these Telegram chats${st.bot ? ` by <strong>@${esc(st.bot)}</strong>` : ''}. Customers’ names, phones and addresses are included, so only connect phones you trust.</p>
+    <div class="alerts__chats">${st.chats.map((c) => `<div class="alerts__chat"><span>📱 ${esc(c.name)}</span><button class="link-btn danger" data-alert-remove="${esc(c.id)}">Remove</button></div>`).join('') || '<p class="hint">No phones connected yet.</p>'}</div>
+    ${invite ? `
+      <ol class="alerts__steps">
+        <li><a class="btn btn--solid btn--sm" href="${esc(invite.link)}" target="_blank" rel="noopener"><span>Open @${esc(invite.bot)} in Telegram</span></a></li>
+        <li>In Telegram, tap <strong>Start</strong>.</li>
+        <li>Come back here and tap <button class="btn btn--ghost btn--sm" data-alert-connect><span>I tapped Start</span></button></li>
+      </ol>
+      <p class="hint">This link works for 15 minutes. To add another person, send them this link.</p>` : ''}
+    <p class="status err" data-alerts-err></p>
+    <div class="toolbar">
+      ${invite ? '' : '<button class="btn btn--ghost btn--sm" data-alert-code><span>+ Connect a phone</span></button>'}
+      ${st.chats.length ? '<button class="btn btn--ghost btn--sm" data-alert-test><span>Send a test alert</span></button>' : ''}
+    </div>`;
+}
+$('[data-alerts]').addEventListener('toggle', (e) => { if (e.target.open && !alertsState) loadAlerts(); });
+$('[data-alerts-body]').addEventListener('click', (e) => {
+  if (e.target.closest('[data-alert-code]')) loadAlerts('code');
+  if (e.target.closest('[data-alert-connect]')) loadAlerts('connect');
+  if (e.target.closest('[data-alert-test]')) loadAlerts('test');
+  const rm = e.target.closest('[data-alert-remove]');
+  if (rm && confirm('Stop order alerts to this phone?')) loadAlerts('remove', { id: rm.dataset.alertRemove });
+});
 
 /* ---------------- resume session ---------------- */
 try {
