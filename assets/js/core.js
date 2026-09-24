@@ -1,6 +1,7 @@
 // Shared boot for every page: layout, smooth scroll, cursor, bag, content,
 // weather, scroll animations and branded page transitions.
 import { CONFIG } from './config.js';
+import { track } from './track.js';
 import { renderLayout } from './layout.js';
 import { initStore } from './shop.js';
 import { applyContent } from './content.js';
@@ -218,6 +219,7 @@ export async function boot(page, init) {
     await applyContent(products).catch((err) => console.warn('content.json', err));
     applyStatic();
     initStore(products);
+    track('view', page === 'product' ? { product: new URLSearchParams(location.search).get('id') || undefined } : {});
     const ctx = { products, gsap, ScrollTrigger, SplitText, lenis, getWeather };
     const result = (await init?.(ctx)) || {};
     setupCursor();

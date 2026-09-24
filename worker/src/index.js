@@ -29,6 +29,9 @@
  *   STT_MODEL        text     optional, default whisper-large-v3
  */
 
+import { EVENT_TYPES, dayOf } from './stats.js';
+export { Stats } from './stats.js';
+
 const GROQ = 'https://api.groq.com/openai/v1';
 const cache = { at: 0, products: [], faq: [], text: '', faqText: '', ids: new Set() };
 const hits = new Map(); // best-effort per-IP rate limit (per Worker instance)
@@ -53,16 +56,21 @@ export default {
     }
     if (!okOrigin) return json({ error: 'origin not allowed' }, 403, cors);
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405, cors);
+    const route = pathname.replace(/\/+$/, '').split('/').pop();
+    if (route === 'track') {
+      // Page views and shop events: never fail loudly, never slow the page down.
+      if (!(await limited(request, env.TRACK_LIMIT))) { try { await track(request, env); } catch (err) { console.error('track', err); } }
+      return new Response(null, { status: 204, headers: cors });
+    }
     if (await limited(request, env.AI_LIMIT)) return json({ error: 'slow down' }, 429, cors);
 
-    const route = pathname.replace(/\/+$/, '').split('/').pop();
     if (route === 'login') {
       try { return json(await login(request, env), 200, cors); } catch (err) { return json({ error: err.message }, err.status || 400, cors); }
     }
-    const admin = ['copy', 'summarize', 'load', 'publish'].includes(route);
+    const admin = ['copy', 'summarize', 'load', 'publish', 'stats'].includes(route);
     if (admin && !(await isAdmin(request, env))) return json({ error: 'login required' }, 401, cors);
     if (!admin && !env.GROQ_API_KEY) return json({ error: 'GROQ_API_KEY is not set' }, 500, cors);
-    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish };
+    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats };
     if (!handlers[route]) return json({ error: 'not found' }, 404, cors);
     try {
       return json(await handlers[route](request, env), 200, cors);
@@ -445,4 +453,51 @@ async function publish(request, env) {
   await gh(env, `/git/refs/heads/${branch}`, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) });
   cache.at = 0; // refresh the AI's catalogue on the next request
   return { commit: commit.sha, url: commit.html_url || `https://github.com/${env.GITHUB_REPO}/commit/${commit.sha}` };
+}
+
+/* ---------------- anonymous site stats ---------------- */
+const BOT_RE = /bot|crawl|spider|slurp|preview|headless|lighthouse|facebookexternalhit|whatsapp|telegram|curl|wget|python|node-fetch/i;
+const REF_ALIASES = { 'l.facebook.com': 'facebook.com', 'lm.facebook.com': 'facebook.com', 'm.facebook.com': 'facebook.com', 'web.facebook.com': 'facebook.com', 'l.instagram.com': 'instagram.com', 'google.com.bd': 'google.com', 't.co': 'x.com' };
+
+async function sha(text) {
+  const d = await crypto.subtle.digest('SHA-256', enc.encode(text));
+  return [...new Uint8Array(d)].slice(0, 8).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function track(request, env) {
+  if (!env.STATS) return;
+  // Respect "do not track" / Global Privacy Control.
+  if (request.headers.get('Sec-GPC') === '1' || request.headers.get('DNT') === '1') return;
+  const ua = request.headers.get('User-Agent') || '';
+  if (!ua || BOT_RE.test(ua)) return;
+  let b;
+  try { b = JSON.parse((await request.text()).slice(0, 2000)); } catch { return; }
+  if (!EVENT_TYPES.includes(b.type)) return;
+
+  const path = /^\/[a-z0-9._/-]{0,80}$/i.test(b.path || '') ? b.path : '/';
+  const product = /^[a-z0-9][a-z0-9-]{0,60}$/.test(b.product || '') ? b.product : null;
+  let ref = null;
+  if (typeof b.utm === 'string' && /^[a-z0-9_.-]{1,40}$/i.test(b.utm)) ref = b.utm.toLowerCase();
+  else if (typeof b.ref === 'string' && b.ref) {
+    try {
+      let h = new URL(b.ref).hostname.toLowerCase().replace(/^www\./, '');
+      h = REF_ALIASES[h] || h;
+      if (!allowedOrigins(env).some((o) => o.includes(h))) ref = h.slice(0, 60);
+    } catch { /* ignore */ }
+  }
+  const device = /iPad|Tablet/i.test(ua) ? 'Tablet' : /Mobi|Android|iPhone/i.test(ua) ? 'Phone' : 'Computer';
+  const ts = Date.now();
+  const ip = request.headers.get('CF-Connecting-IP') || '';
+  const vid = await sha(`${dayOf(ts)}|${ip}|${ua}|${env.ADMIN_TOKEN || 'hololand'}`);
+  const value = b.type === 'order' && Number.isFinite(+b.value) ? Math.max(0, Math.min(10_000_000, Math.round(+b.value))) : null;
+  const cf = request.cf || {};
+  const stub = env.STATS.get(env.STATS.idFromName('global'));
+  await stub.record({ ts, type: b.type, path, product, ref, device, city: cf.city ? String(cf.city).slice(0, 40) : null, country: cf.country || null, vid, value });
+}
+
+async function stats(request, env) {
+  if (!env.STATS) throw httpError(503, 'Stats storage is not set up yet (redeploy the Worker from the latest code).');
+  const { days } = await request.json().catch(() => ({}));
+  const d = [1, 7, 30, 90].includes(+days) ? +days : 7;
+  return env.STATS.get(env.STATS.idFromName('global')).report(d);
 }

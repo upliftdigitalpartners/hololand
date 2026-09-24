@@ -102,6 +102,7 @@ Publish needs a GitHub token that can only edit this one repository:
 - **Texts & settings:** the announcement bar (e.g. "Eid sale: 15% off"), WhatsApp number, store address, opening hours, Google Maps link, social links, and the homepage and story texts.
 - **FAQ:** the answers the chat assistant uses for delivery, payment and store questions.
 - **Reviews:** paste real customer reviews; the AI writes a summary, and stars appear on the product.
+- **Stats:** visitors per day, who's on the site right now, most viewed and most bagged products, where visitors come from (Facebook, Instagram, Google…), phones vs computers, and cities. Pick Today, 7, 30 or 90 days. Counting is anonymous (no cookies, no IP addresses stored). It starts working by itself once the Worker redeploys; nothing to set up.
 - Nothing goes live until you click **Publish**. The button shows how many things changed.
 
 ---
