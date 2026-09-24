@@ -1,7 +1,7 @@
 {
   "_note": "Edited from admin.html. 'texts' fill elements marked data-content in index.html; 'settings' override assets/js/config.js.",
   "settings": {
-    "announcement": "20% off on Puja Sales",
+    "announcement": "",
     "whatsappNumber": "+8801711885411",
     "deliveryNote": "Cash on delivery & bKash · Delivery across all 64 districts",
     "store": {
