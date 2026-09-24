@@ -11,6 +11,24 @@ let faqs = [];
 let getWeather = () => null;
 const history = [];
 
+/* ---------------- Scope guard ----------------
+   The assistant only talks about Hololand: products, styling, sizes, orders,
+   delivery and the store. Anything else gets a polite fixed reply. The Worker
+   enforces the same rules for the Groq version. */
+const MAX_MESSAGES = 40;
+const OFF_TOPIC = {
+  en: 'Sorry, I can only help with Hololand: our panjabis and knitwear, outfit ideas, sizes, orders, delivery and the store. What are you shopping for?',
+  bn: 'দুঃখিত, আমি শুধু Hololand নিয়ে সাহায্য করতে পারি: পাঞ্জাবি, সোয়েটার, স্টাইল, সাইজ, অর্ডার, ডেলিভারি আর দোকানের তথ্য। আপনি কী খুঁজছেন?',
+};
+const GREETING = {
+  en: 'Hello! 👋 I can suggest an outfit, help with sizes, or answer questions about orders, delivery and our Chittagong store. What do you need?',
+  bn: 'আসসালামু আলাইকুম! 👋 আমি পোশাক সাজেস্ট করতে পারি, সাইজ বুঝতে সাহায্য করতে পারি, অথবা অর্ডার, ডেলিভারি আর দোকান নিয়ে প্রশ্নের উত্তর দিতে পারি।',
+};
+const GREET_RE = /^\s*(hi+|hello|hey|salam|salaam|assalamu?\s*alaikum|good (morning|afternoon|evening)|thanks?|thank you|ok(ay)?|ধন্যবাদ|হ্যালো|আসসালামু আলাইকুম|সালাম)[\s!.?]*$/i;
+const STORE_WORDS = ['hololand', 'panjabi', 'punjabi', 'kurta', 'sweater', 'knit', 'jumper', 'outfit', 'wear', 'dress', 'cloth', 'fashion', 'style', 'look', 'size', 'fit', 'colour', 'color', 'fabric', 'price', 'cost', 'order', 'buy', 'purchase', 'delivery', 'shipping', 'store', 'shop', 'collection', 'recommend', 'suggest', 'show me', 'new arrival', 'stock', 'available', 'pair with', 'match',
+  'পোশাক', 'জামা', 'কাপড়', 'দাম', 'কিনতে', 'কিনব', 'দেখান', 'সাজেস্ট', 'স্টাইল', 'কালেকশন', 'পরব', 'পরার', 'রঙ', 'সাইজ', 'অর্ডার', 'দোকান'];
+let sent = 0;
+
 /* ---------------- Support answers (FAQ) ---------------- */
 function faqAnswer(text) {
   const q = ` ${text.toLowerCase()} `;
@@ -83,6 +101,10 @@ function localStylist(text) {
   const faq = faqAnswer(text);
   const shopping = intents.some((i) => i !== 'gift') || colors.length || budget;
   if (faq && !shopping) return { reply: bn ? faq.a_bn : faq.a, products: [] };
+  if (GREET_RE.test(text)) return { reply: bn ? GREETING.bn : GREETING.en, products: [] };
+  if (!faq && !intents.length && !colors.length && !budget && !has(STORE_WORDS)) {
+    return { reply: bn ? OFF_TOPIC.bn : OFF_TOPIC.en, products: [] };
+  }
   const occasion = intents.find((i) => ['eid', 'wedding', 'haldi', 'winter', 'office', 'jummah', 'evening', 'casual', 'gift'].includes(i));
   const names = { eid: ['Eid', 'ঈদের'], wedding: ['a wedding', 'বিয়ের'], haldi: ['a holud', 'গায়ে হলুদের'], winter: ['winter', 'শীতের'], office: ['the office', 'অফিসের'], jummah: ['Jummah', 'জুম্মার'], evening: ['an evening out', 'সন্ধ্যার দাওয়াতের'], casual: ['everyday wear', 'প্রতিদিনের'], gift: ['a gift', 'উপহারের'] };
 
@@ -135,10 +157,14 @@ function addRecs(ids) {
 }
 
 async function ask(text) {
-  text = text.trim();
+  text = text.trim().slice(0, 300);
   if (!text) return;
   addMsg('user', text);
-  history.push({ role: 'user', content: text.slice(0, 600) });
+  if (++sent > MAX_MESSAGES) {
+    addMsg('bot', 'We’ve covered a lot! For anything else, message us on WhatsApp and the team will help you directly.');
+    return;
+  }
+  history.push({ role: 'user', content: text });
   const typing = addMsg('bot', '');
   typing.classList.add('msg--typing');
   typing.innerHTML = '<i></i><i></i><i></i>';
