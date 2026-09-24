@@ -1,5 +1,6 @@
 import { aiEnabled, callAI, loadData, esc } from './ai.js';
 import { catOf } from './categories.js';
+import { left, lowNote, stockReady } from './stock.js';
 let charts = null;
 const chartsReady = loadData('sizes').then((d) => { charts = d; });
 
@@ -32,8 +33,22 @@ export function createSizer(root) {
   let fit = 'regular';
 
   function select(s) {
+    if (product && left(product.id, s) === 0) return; // sold out
     size = s;
     root.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('is-active', b.dataset.size === s));
+    const note = q('[data-size-left]');
+    if (note) note.textContent = product ? lowNote(product.id, s) : '';
+  }
+  // Grey out sizes with no stock left.
+  function markStock() {
+    if (!product) return;
+    root.querySelectorAll('[data-size]').forEach((b) => {
+      const out = left(product.id, b.dataset.size) === 0;
+      b.disabled = out;
+      b.classList.toggle('is-out', out);
+      b.title = out ? 'Sold out' : '';
+      if (out && size === b.dataset.size) { size = null; b.classList.remove('is-active'); }
+    });
   }
 
   q('[data-sizes]').addEventListener('click', (e) => {
@@ -71,6 +86,7 @@ export function createSizer(root) {
       } catch (err) { console.warn('size helper failed', err); }
     }
     select(result.size);
+    if (left(product.id, result.size) === 0) result.reason += ' That size is sold out right now.';
     out.innerHTML = `<strong>We suggest ${esc(result.size)}</strong> ${esc(result.reason)}`;
   });
 
@@ -82,6 +98,10 @@ export function createSizer(root) {
       out.textContent = '';
       const sizes = catOf(p.cat).sizes;
       q('[data-sizes]').innerHTML = sizes.map((s) => `<button type="button" data-size="${esc(s)}">${esc(s)}</button>`).join('');
+      const note = q('[data-size-left]');
+      if (note) note.textContent = '';
+      markStock();
+      stockReady.then(() => { if (product === p) markStock(); });
       if (sizes.length === 1) select(sizes[0]); // e.g. "Free size"
       // "Find my size" needs a measurement chart (assets/data/sizes.json); new categories may not have one.
       const toggle = q('[data-size-toggle]');

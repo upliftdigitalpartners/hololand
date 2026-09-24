@@ -399,6 +399,14 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .drawer__foot { padding: 20px 24px 24px; border-top: 1px solid var(--line); }
 .drawer__total { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 16px; }
 .drawer__head h3 { flex: 1; }
+/* Stock */
+.sizes button.is-out { opacity: .35; text-decoration: line-through; cursor: not-allowed; }
+.size-left { margin: -14px 0 18px; min-height: 1.2em; font-size: 12px; font-weight: 600; color: var(--orange-2); }
+.size-left:empty { display: none; }
+.line-item__low { display: block; color: var(--orange-2); font-weight: 600; }
+.card.is-soldout .card__media img { filter: grayscale(.6) brightness(.7); }
+.card.is-soldout .card__tag { background: rgba(13,10,9,.9); color: var(--cream); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
 .drawer__back { margin-right: 10px; }
 .drawer__back[hidden], .drawer__view[hidden], .drawer__alt[hidden] { display: none; }
 .drawer__view { flex: 1; min-height: 0; display: flex; flex-direction: column; }

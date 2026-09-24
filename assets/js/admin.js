@@ -105,6 +105,7 @@ async function start() {
   }
   resetDirty();
   fillCatSelect($('[data-cat-filter]'), '', true);
+  await loadStock();
   renderProducts(); renderCategories(); renderTexts(); renderFaq(); renderReviewsTab();
   loadOrders();
   loadAlerts();
@@ -124,7 +125,7 @@ function renderProducts() {
   $('[data-plist]').innerHTML = list.map((p) => `
     <div class="prow ${p.hidden ? 'is-hidden' : ''}" data-id="${esc(p.id)}">
       <img src="${esc(imgSrc(p.images[0]))}" alt="" loading="lazy" />
-      <div class="prow__name"><strong>${esc(p.name)}</strong><span>${esc(p.code)} · ${esc(catName(p.cat))}${p.hidden ? ' · hidden' : ''}</span></div>
+      <div class="prow__name"><strong>${esc(p.name)}</strong><span>${esc(p.code)} · ${esc(catName(p.cat))}${p.hidden ? ' · hidden' : ''}${stockSummary(p)}</span></div>
       <label class="prow__price">৳<input type="number" min="1" value="${esc(p.price)}" data-price aria-label="Price" /></label>
       <label class="check"><input type="checkbox" data-shown ${p.hidden ? '' : 'checked'} /> Shown</label>
       <button class="btn btn--ghost btn--sm" data-edit><span>Edit</span></button>
@@ -232,6 +233,55 @@ $('[data-cat-add]').addEventListener('click', () => {
   cards.at(-1).querySelector('[data-ck="name"]').focus();
 });
 
+/* ---------------- stock ---------------- */
+let stock = {};
+const catSizes = (catId) => (cats().find((c) => c.id === catId)?.sizes || []);
+async function loadStock() {
+  try { const r = await fetch(`${API}/stock`, { cache: 'no-store' }); stock = (await r.json()).stock || {}; } catch { /* keep last */ }
+}
+function stockSummary(p) {
+  const st = stock[p.id];
+  if (!st) return '';
+  const sizes = catSizes(p.cat).filter((z) => z in st);
+  if (!sizes.length) return '';
+  const out = sizes.filter((z) => st[z] <= 0);
+  const total = sizes.reduce((n, z) => n + Math.max(0, st[z]), 0);
+  if (out.length === catSizes(p.cat).length) return ' · <b class="danger">Sold out</b>';
+  return ` · ${total} in stock${out.length ? ` · <b class="danger">${esc(out.join(', '))} sold out</b>` : ''}`;
+}
+function renderStockBox() {
+  const box = $('[data-stockbox]');
+  if (isNew) {
+    $('[data-stock-grid]').innerHTML = '<p class="hint">Publish the new product first, then open it again to add stock.</p>';
+    $('[data-stock-save]').hidden = true;
+    return;
+  }
+  $('[data-stock-save]').hidden = false;
+  const st = stock[editing.id] || {};
+  $('[data-stock-grid]').innerHTML = catSizes(F('cat').value).map((z) => `
+    <label class="stockbox__size ${st[z] === 0 ? 'is-out' : ''}"><span>${esc(z)}</span>
+      <input type="number" min="0" step="1" inputmode="numeric" data-stock-size="${esc(z)}" value="${z in st ? esc(st[z]) : ''}" placeholder="∞" /></label>`).join('');
+  status($('[data-stock-status]'), '');
+  box.hidden = false;
+}
+$('[data-stock-save]').addEventListener('click', async () => {
+  const el = $('[data-stock-status]');
+  const sizes = {};
+  for (const inp of $$('[data-stock-size]')) {
+    const v = inp.value.trim();
+    if (v !== '' && !(Number.isInteger(+v) && +v >= 0)) { status(el, `${inp.dataset.stockSize}: use a whole number, or leave empty`, 'err'); return; }
+    sizes[inp.dataset.stockSize] = v === '' ? null : +v;
+  }
+  status(el, 'Saving…');
+  try {
+    const r = await api('/admin/stock-set', { product: editing.id, sizes });
+    stock[editing.id] = r.stock;
+    renderStockBox();
+    status($('[data-stock-status]'), 'Saved ✓ Live on the site in a few seconds', 'ok');
+    renderProducts();
+  } catch (err) { if (err.message !== 'Signed out') status(el, err.message, 'err'); }
+});
+
 /* ---------------- product editor ---------------- */
 let editing = null;   // product object being edited
 let isNew = false;
@@ -251,10 +301,13 @@ function openEditor(id) {
   $('[data-social-out]').hidden = true;
   $('[data-delete-product]').hidden = isNew;
   renderPhotos();
+  renderStockBox();
+  if (!isNew) loadStock().then(() => { if (editing && !isNew) renderStockBox(); });
   $('[data-editor]').hidden = false;
   F('name').focus();
 }
 form.elements.cat.addEventListener('change', () => {
+  renderStockBox();
   // New products pick up the category's usual type (e.g. Shirt) unless one was typed.
   const c = cats().find((x) => x.id === F('cat').value);
   if (isNew && c?.type && (!F('type').value.trim() || cats().some((x) => x.type === F('type').value.trim()))) F('type').value = c.type;

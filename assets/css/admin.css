@@ -223,3 +223,17 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .alerts__chat { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
 .alerts__steps { margin: 0 0 10px; padding-left: 20px; display: grid; gap: 10px; font-size: 14px; color: var(--cream-2); }
 .alerts__steps li::marker { color: var(--orange-2); font-weight: 700; }
+
+/* Stock */
+.stockbox { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--ink); }
+.stockbox__head { display: grid; gap: 2px; }
+.stockbox__head strong { font-size: 14px; }
+.stockbox__head small { color: var(--muted); font-size: 12px; }
+.stockbox__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+.stockbox__size { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--cream-2); text-align: center; }
+.stockbox__size input { width: 100%; background: var(--ink-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 9px 6px; color: var(--cream); font: 600 15px var(--sans); text-align: center; outline: none; }
+.stockbox__size input:focus { border-color: var(--orange); }
+.stockbox__size.is-out input { border-color: rgba(255,122,107,.6); color: #ff7a6b; }
+.stockbox__foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.stockbox__foot .status { margin: 0; }
+.prow__name b.danger { font-weight: 600; }

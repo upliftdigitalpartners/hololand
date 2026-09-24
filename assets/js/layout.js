@@ -205,6 +205,7 @@ export function sizerHTML() {
   return `
     <div class="sizes-head"><span class="mono">Size</span><button type="button" class="link-btn" data-size-toggle>Find my size ✦</button></div>
     <div class="sizes" data-sizes></div>
+    <p class="size-left" data-size-left aria-live="polite"></p>
     <form class="sizer" data-sizer hidden>
       <div class="sizer__row">
         <label>Height <span><input type="number" name="ft" min="4" max="7" placeholder="5" inputmode="numeric" /> ft <input type="number" name="in" min="0" max="11" placeholder="8" inputmode="numeric" /> in</span></label>
