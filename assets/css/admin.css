@@ -237,3 +237,4 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .stockbox__foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .stockbox__foot .status { margin: 0; }
 .prow__name b.danger { font-weight: 600; }
+.feedbox .toolbar .inp { max-width: none; }

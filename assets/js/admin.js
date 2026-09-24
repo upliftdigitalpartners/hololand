@@ -233,6 +233,13 @@ $('[data-cat-add]').addEventListener('click', () => {
   cards.at(-1).querySelector('[data-ck="name"]').focus();
 });
 
+/* ---------------- shop feed ---------------- */
+$('[data-feed-url]').value = `${API}/feed.xml`;
+$('[data-feed-open]').href = `${API}/feed.xml`;
+$('[data-feed-copy]').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('[data-feed-url]').value); toast('Feed link copied'); } catch { $('[data-feed-url]').select(); }
+});
+
 /* ---------------- stock ---------------- */
 let stock = {};
 const catSizes = (catId) => (cats().find((c) => c.id === catId)?.sizes || []);
@@ -338,15 +345,17 @@ $('[data-photos]').addEventListener('click', (e) => {
   if (rm) { editing.images.splice(+rm.dataset.removePhoto, 1); renderPhotos(); if (!isNew) markDirty('products'); }
 });
 
-async function toWebp(file, width) {
+async function toImage(file, width, type = 'image/webp', quality = 0.8) {
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
   const landscape = bmp.width > bmp.height;
   const scale = Math.min(1, landscape ? (width * 1.5) / bmp.height : width / bmp.width);
   const c = document.createElement('canvas');
   c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
   c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  const blob = await new Promise((r) => c.toBlob(r, 'image/webp', 0.8));
-  if (!blob || blob.type !== 'image/webp') throw new Error('This browser can’t create WebP images. Please use Chrome, Edge or Firefox.');
+  const ctx = c.getContext('2d');
+  if (type === 'image/jpeg') { ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); }
+  const blob = await new Promise((r) => c.toBlob(r, type, quality));
+  if (!blob || blob.type !== type) throw new Error('This browser can’t process photos. Please use Chrome, Edge or Firefox.');
   const dataUrl = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); });
   return { dataUrl, b64: dataUrl.split(',')[1] };
 }
@@ -358,9 +367,10 @@ $('[data-photo-upload]').addEventListener('change', async (e) => {
   for (const file of files) {
     toast(`Processing ${file.name}…`);
     try {
-      const lg = await toWebp(file, 1100), sm = await toWebp(file, 520);
+      const lg = await toImage(file, 1100), sm = await toImage(file, 520);
+      const jpg = await toImage(file, 1080, 'image/jpeg', 0.82); // for the Facebook / Instagram / Google shop feed
       const base = `${prefix}-${Date.now().toString(36)}`;
-      pending.set(base, { lg: lg.b64, sm: sm.b64, preview: sm.dataUrl });
+      pending.set(base, { lg: lg.b64, sm: sm.b64, jpg: jpg.b64, preview: sm.dataUrl });
       editing.images.push(base);
       renderPhotos();
       if (!isNew) markDirty('products');
@@ -575,6 +585,7 @@ $('[data-publish]').addEventListener('click', async () => {
   for (const [base, v] of newImages) {
     files.push({ path: `assets/img/${base}-lg.webp`, content: v.lg, encoding: 'base64' });
     files.push({ path: `assets/img/${base}-sm.webp`, content: v.sm, encoding: 'base64' });
+    if (v.jpg) files.push({ path: `assets/img/feed/${base}.jpg`, content: v.jpg, encoding: 'base64' });
   }
   if (!files.length) return;
   const unnamed = cats().findIndex((c) => !String(c.name || '').trim());
@@ -583,7 +594,7 @@ $('[data-publish]').addEventListener('click', async () => {
   try {
     const what = [...dirty].join(', ') + (newImages.length ? `${dirty.size ? ', ' : ''}${newImages.length} photo(s)` : '');
     const res = await api('/admin/publish', { files, message: `Admin: update ${what}` });
-    newImages.forEach(([, v]) => { v.published = true; v.lg = v.sm = null; });
+    newImages.forEach(([, v]) => { v.published = true; v.lg = v.sm = v.jpg = null; });
     resetDirty();
     notice(`✓ Published. The website updates in about a minute. <a class="link-btn" href="${esc(res.url)}" target="_blank" rel="noopener">See the change on GitHub ↗</a>`);
     toast('Published ✓ Live in about a minute');
@@ -597,7 +608,7 @@ window.addEventListener('beforeunload', (e) => { if (dirty.size) { e.preventDefa
 
 /* ---------------- stats ---------------- */
 const PAGE_NAMES = { '/': 'Home', '/index.html': 'Home', '/shop.html': 'Shop', '/product.html': 'Product pages', '/lookbook.html': 'Lookbook', '/stylist.html': 'Stylist chat', '/story.html': 'Our story', '/help.html': 'Help & FAQ' };
-const SOURCE_NAMES = { 'facebook.com': 'Facebook', facebook: 'Facebook', fb: 'Facebook', 'instagram.com': 'Instagram', instagram: 'Instagram', ig: 'Instagram', 'google.com': 'Google search', google: 'Google', 'tiktok.com': 'TikTok', tiktok: 'TikTok', 'youtube.com': 'YouTube', 'x.com': 'X (Twitter)', 'bing.com': 'Bing search', whatsapp: 'WhatsApp' };
+const SOURCE_NAMES = { 'facebook.com': 'Facebook', facebook: 'Facebook', fb: 'Facebook', 'instagram.com': 'Instagram', instagram: 'Instagram', ig: 'Instagram', 'google.com': 'Google search', google: 'Google', 'tiktok.com': 'TikTok', tiktok: 'TikTok', 'youtube.com': 'YouTube', 'x.com': 'X (Twitter)', 'bing.com': 'Bing search', whatsapp: 'WhatsApp', catalog: 'Shop catalog (Facebook / Instagram / Google)' };
 const nf = new Intl.NumberFormat('en-IN');
 const fmtDay = (d, long) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', ...(long ? { weekday: 'short' } : {}) });
 let statsDays = 7;
