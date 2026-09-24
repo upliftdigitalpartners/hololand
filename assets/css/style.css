@@ -335,7 +335,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .modal.is-open { visibility: visible; }
 .modal__scrim, .drawer__scrim { position: absolute; inset: 0; background: rgba(5,4,3,.7); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity .5s var(--ease); }
 .is-open .modal__scrim, .is-open .drawer__scrim { opacity: 1; }
-.modal__panel { position: relative; width: min(1040px, 100%); max-height: calc(100svh - 2 * var(--gutter)); overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(20px, 4vw, 56px); padding: clamp(18px, 3vw, 40px); background: var(--ink-2); border: 1px solid var(--line-2); border-radius: 28px; opacity: 0; transform: translateY(40px) scale(.97); transition: opacity .5s var(--ease), transform .6s var(--ease); }
+.modal__panel { position: relative; width: min(1040px, 100%); max-height: calc(100svh - 2 * var(--gutter)); overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: clamp(20px, 4vw, 56px); padding: clamp(18px, 3vw, 40px); background: var(--ink-2); border: 1px solid var(--line-2); border-radius: 28px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; opacity: 0; transform: translateY(40px) scale(.97); transition: opacity .5s var(--ease), transform .6s var(--ease); }
 .modal.is-open .modal__panel { opacity: 1; transform: none; }
 .modal__close { position: absolute; top: 16px; right: 16px; z-index: 2; background: var(--ink-2); }
 .qv__main { aspect-ratio: 2 / 3; background: var(--ink-3); }
