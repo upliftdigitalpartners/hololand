@@ -7,7 +7,7 @@
       "name": "Maroon Heritage",
       "cat": "men",
       "type": "Panjabi",
-      "price": 34,
+      "price": 3290,
       "color": "Maroon",
       "hex": "#6b1b24",
       "images": [
@@ -436,7 +436,7 @@
       "name": "Rose Mock-Neck",
       "cat": "women",
       "type": "Knitwear",
-      "price": 2250,
+      "price": 1290,
       "color": "Dusty Rose",
       "hex": "#c97f7b",
       "images": [
@@ -459,7 +459,7 @@
       "name": "Cobalt Crew",
       "cat": "women",
       "type": "Knitwear",
-      "price": 2150,
+      "price": 1290,
       "color": "Cobalt",
       "hex": "#1f6fa3",
       "images": [
@@ -481,7 +481,7 @@
       "name": "Ivory Funnel",
       "cat": "women",
       "type": "Knitwear",
-      "price": 2350,
+      "price": 1290,
       "color": "Ivory",
       "hex": "#ece8dc",
       "images": [
@@ -505,7 +505,7 @@
       "name": "Lilac Haze",
       "cat": "women",
       "type": "Knitwear",
-      "price": 2250,
+      "price": 1290,
       "color": "Lilac",
       "hex": "#c8a6c9",
       "images": [
@@ -527,7 +527,7 @@
       "name": "Sky Mock-Neck",
       "cat": "women",
       "type": "Knitwear",
-      "price": 2150,
+      "price": 1290,
       "color": "Sky Blue",
       "hex": "#8fb8dc",
       "images": [
@@ -548,7 +548,7 @@
       "name": "Fuchsia Pop",
       "cat": "women",
       "type": "Knitwear",
-      "price": 2150,
+      "price": 1290,
       "color": "Fuchsia",
       "hex": "#d0237a",
       "images": [
