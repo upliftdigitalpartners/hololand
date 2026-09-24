@@ -7,7 +7,11 @@ compatibility_date = "2026-09-01"
 workers_dev = true
 
 [vars]
+# Where the Worker reads the catalogue/FAQ. The github.io address keeps working
+# after the custom domain is on (GitHub redirects it), so it never breaks.
 SITE_URL = "https://upliftdigitalpartners.github.io/hololand"
+# Extra websites allowed to use the AI and admin (the custom domain).
+ALLOWED_ORIGINS = "https://hololandbd.com,https://www.hololandbd.com"
 CHAT_MODEL = "openai/gpt-oss-120b"
 VISION_MODEL = "qwen/qwen3.6-27b"
 STT_MODEL = "whisper-large-v3"

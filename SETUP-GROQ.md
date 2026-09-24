@@ -73,7 +73,7 @@ Open the site and scroll to **AI Stylist**. The badge says **● Live · Groq**.
 
 The admin page lets you change prices, descriptions and site texts, add products with photos, hide sold-out items and edit the FAQ, all without touching code. Clicking **Publish** saves your changes to GitHub, and the site updates about a minute later.
 
-**Where it is:** click the small **©** at the bottom of the website, or go to **https://upliftdigitalpartners.github.io/hololand/admin.html**. It isn't linked anywhere else and is hidden from Google.
+**Where it is:** click the small **©** at the bottom of the website, or go to **https://hololandbd.com/admin.html**. It isn't linked anywhere else and is hidden from Google.
 
 **Password:** your `ADMIN_TOKEN` from Step 4. Change it any time in Cloudflare; everyone gets signed out.
 
@@ -114,7 +114,7 @@ Publish needs a GitHub token that can only edit this one repository:
 | Worker page says **No URLs enabled** / address doesn't open | Wait for a successful build (`wrangler.toml` turns on the workers.dev address), or enable it under **Settings → Domains & Routes → workers.dev**. |
 | Badge still says "Offline matcher" | The site hasn't redeployed yet. Hard-refresh the page (Ctrl+Shift+R). |
 | AI answers look generic / the stylist ignores the question | Open the Worker address: `groqKey` must be `true`. Check the key in Groq isn't deleted. |
-| Browser console shows `403 origin not allowed` | `SITE_URL` in `wrangler.toml` is wrong. It must be exactly `https://upliftdigitalpartners.github.io/hololand`. Using a custom domain later? Add `ALLOWED_ORIGINS = "https://yourdomain.com"` under `[vars]` in `wrangler.toml`. |
+| Browser console shows `403 origin not allowed` | The site's address isn't in `ALLOWED_ORIGINS` in `wrangler.toml` (currently hololandbd.com and www.hololandbd.com). Add any new domain there. |
 | Photo match shows colours but no "✦ AI" note | Groq's vision model name changes over time. In Groq's console check **Models** for one marked *vision*, and set `VISION_MODEL` in `wrangler.toml` to its ID. The colour matching still works without it. |
 | "slow down" errors | Built-in limit of 30 AI requests per minute per visitor, to protect your Groq quota. |
 | Admin login says "Wrong password" | Type `ADMIN_TOKEN` exactly as saved in Cloudflare. After 8 wrong tries, wait 15 minutes. |
