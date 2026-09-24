@@ -1,0 +1,153 @@
+// Shared chrome (header, menus, footer, bag, quick view…) injected into every page,
+// so it is written once. Each page's HTML only holds its own <main> content.
+
+export const NAV = [
+  { key: 'shop', label: 'Shop', href: 'shop.html' },
+  { key: 'men', label: 'Men', href: 'shop.html?cat=men' },
+  { key: 'women', label: 'Women', href: 'shop.html?cat=women' },
+  { key: 'lookbook', label: 'Lookbook', href: 'lookbook.html' },
+  { key: 'stylist', label: 'Stylist', href: 'stylist.html' },
+  { key: 'story', label: 'Story', href: 'story.html' },
+  { key: 'help', label: 'Help', href: 'help.html' },
+];
+
+const MARK = `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 345 400">
+    <polygon class="m-a" points="0,0 105,0 105,140 0,212" />
+    <polygon class="m-b" points="0,245 215,98 215,300 110,300 110,400 0,400" />
+    <rect class="m-c" x="238" y="0" width="107" height="400" />
+  </symbol></svg>`;
+
+const BAG_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
+
+function activeKey(page) {
+  if (page !== 'shop') return page;
+  const cat = new URLSearchParams(location.search).get('cat');
+  return cat === 'men' || cat === 'women' ? cat : 'shop';
+}
+
+function header(page) {
+  const active = activeKey(page);
+  return `
+  <div class="announce" data-announce hidden><span data-announce-text></span></div>
+  <header class="nav">
+    <a href="./" class="nav__brand" aria-label="Hololand home"><svg class="brandmark"><use href="#mark" /></svg><span>Hololand</span></a>
+    <nav class="nav__links" aria-label="Primary">
+      ${NAV.map((n) => `<a href="${n.href}" class="${n.key === active ? 'is-active' : ''}" ${n.key === active ? 'aria-current="page"' : ''}>${n.label}</a>`).join('')}
+    </nav>
+    <div class="nav__right">
+      <span class="weather-chip" data-weather hidden></span>
+      <button class="bag-btn" data-open-bag data-magnetic aria-label="Open bag">${BAG_ICON}<span class="bag-btn__count" data-bag-count>0</span></button>
+      <button class="menu-btn" data-menu aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
+    </div>
+  </header>
+  <div class="mobile-menu" data-mobile-menu>
+    <nav class="mobile-menu__links">
+      ${NAV.map((n, i) => `<a href="${n.href}" class="${n.key === active ? 'is-active' : ''}"><small>0${i + 1}</small>${n.label}</a>`).join('')}
+    </nav>
+    <div class="mobile-menu__foot">
+      <a href="#" data-whatsapp class="btn btn--ghost btn--sm"><span>WhatsApp us</span></a>
+      <span data-delivery-note></span>
+    </div>
+  </div>`;
+}
+
+function footer() {
+  return `
+  <footer class="footer">
+    <canvas class="footer__gl" data-logo-canvas aria-hidden="true"></canvas>
+    <div class="footer__top">
+      <div>
+        <h2 class="footer__big">Stay <em>in the loop.</em></h2>
+        <form class="newsletter" data-newsletter>
+          <input type="email" required placeholder="your@email.com" aria-label="Email" />
+          <button class="btn btn--solid" data-magnetic><span>Subscribe</span></button>
+        </form>
+        <p class="footer__note" data-newsletter-note></p>
+      </div>
+    </div>
+    <div class="footer__cols">
+      <div><h4>Shop</h4><a href="shop.html?cat=men">Men · Panjabi</a><a href="shop.html?cat=women">Women · Knitwear</a><a href="lookbook.html">Lookbook</a></div>
+      <div><h4>Help</h4><a href="help.html">FAQ &amp; delivery</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
+      <div data-store-col hidden><h4>Visit us</h4><span data-store-address></span><span data-store-hours></span><a data-store-map target="_blank" rel="noopener" hidden>Open in Google Maps ↗</a></div>
+      <div><h4>Follow</h4><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
+    </div>
+    <div class="footer__bottom">
+      <span><a href="admin.html" class="admin-link" aria-label="Admin" rel="nofollow">©</a> <span data-year></span> Hololand · Made in Bangladesh</span>
+      <span class="footer__about"><a href="story.html">Our story</a> · <a href="help.html">Help</a></span>
+    </div>
+  </footer>`;
+}
+
+const OVERLAYS = `
+  <div class="cursor" aria-hidden="true"><div class="cursor__ring"><span class="cursor__label"></span></div><div class="cursor__dot"></div></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <div class="modal" data-modal aria-hidden="true">
+    <div class="modal__scrim" data-close-modal></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="qv-title" data-sizer-root>
+      <button class="icon-btn modal__close" data-close-modal aria-label="Close">✕</button>
+      <div class="qv__media">
+        <div class="qv__main arch"><img data-qv-img alt="" /></div>
+        <div class="qv__thumbs" data-qv-thumbs></div>
+      </div>
+      <div class="qv__info">
+        <span class="mono" data-qv-code></span>
+        <h3 id="qv-title" data-qv-name></h3>
+        <p class="qv__price" data-qv-price></p>
+        <div class="qv__lang" data-qv-lang hidden><button class="is-active" data-lang="en">EN</button><button data-lang="bn">বাংলা</button></div>
+        <p class="qv__desc" data-qv-desc></p>
+        <p class="qv__fabric"><span class="swatch" data-qv-swatch></span><span data-qv-fabric></span></p>
+        ${sizerHTML()}
+        <button class="btn btn--solid btn--wide" data-qv-add><span>Add to bag</span></button>
+        <a class="qv__more link-btn" data-qv-link href="#">View full details →</a>
+        <p class="qv__note" data-delivery-note></p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="drawer" data-drawer aria-hidden="true">
+    <div class="drawer__scrim" data-close-bag></div>
+    <div class="drawer__panel" role="dialog" aria-label="Shopping bag">
+      <div class="drawer__head"><h3>Your bag</h3><button class="icon-btn" data-close-bag aria-label="Close">✕</button></div>
+      <div class="drawer__items" data-bag-items></div>
+      <div class="drawer__foot">
+        <div class="gift-note" data-gift-note hidden>
+          <div class="gift-note__head"><span class="mono">🎁 Gift message</span><button class="link-btn" data-gift-note-clear>Remove</button></div>
+          <p data-gift-note-text></p>
+        </div>
+        <div class="drawer__total"><span>Subtotal</span><strong data-bag-total>৳0</strong></div>
+        <button class="btn btn--solid btn--wide" data-checkout><span>Order on WhatsApp</span></button>
+        <p class="drawer__note" data-delivery-note></p>
+      </div>
+    </div>
+  </aside>
+
+  <div class="toast" data-toast></div>
+  <a href="stylist.html" class="fab" data-fab aria-label="Chat with our stylist"><span>✦</span><b>Ask Hololand</b></a>`;
+
+/** Size picker + "Find my size" form. Used in the quick view and on product pages. */
+export function sizerHTML() {
+  return `
+    <div class="sizes-head"><span class="mono">Size</span><button type="button" class="link-btn" data-size-toggle>Find my size ✦</button></div>
+    <div class="sizes" data-sizes></div>
+    <form class="sizer" data-sizer hidden>
+      <div class="sizer__row">
+        <label>Height <span><input type="number" name="ft" min="4" max="7" placeholder="5" inputmode="numeric" /> ft <input type="number" name="in" min="0" max="11" placeholder="8" inputmode="numeric" /> in</span></label>
+        <label>Weight <span><input type="number" name="kg" min="30" max="160" placeholder="68" inputmode="numeric" required /> kg</span></label>
+      </div>
+      <div class="seg seg--sm" data-fit>
+        <button type="button" data-fitv="slim">Slim</button>
+        <button type="button" class="is-active" data-fitv="regular">Regular</button>
+        <button type="button" data-fitv="relaxed">Relaxed</button>
+      </div>
+      <button class="btn btn--ghost btn--wide btn--sm"><span>Suggest my size</span></button>
+      <p class="sizer__out" data-sizer-out aria-live="polite"></p>
+    </form>`;
+}
+
+export function renderLayout(page) {
+  document.body.insertAdjacentHTML('afterbegin', MARK + header(page));
+  document.body.insertAdjacentHTML('beforeend', footer() + OVERLAYS);
+  if (page === 'stylist') document.querySelector('[data-fab]').remove();
+}
