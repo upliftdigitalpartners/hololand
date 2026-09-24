@@ -16,7 +16,8 @@ A static site for Hololand (men's panjabi and women's knitwear, Bangladesh). It 
 | Reviews with AI summaries, FAQ section (with Google FAQ markup), floating "Ask Hololand" button | Vanilla JS |
 | Admin (`admin.html`, hidden link on the footer ©): password login; edit prices, products and photos, site texts, announcement bar, store info, FAQ and reviews; AI copywriting; one-click **Publish** commits to this repo | Cloudflare Worker + GitHub API |
 | Live Chittagong weather in the nav and the stylist | Open-Meteo (free, no key) |
-| Visitor stats in the admin (visitors, products, sources, devices, cities, bag adds, WhatsApp orders; no cookies, no IPs stored) | Cloudflare Worker + Durable Object (free tier) |
+| Checkout form (name, mobile, area, address, COD or bKash) with delivery charges; orders land in the admin's **Orders** tab (status, notes, WhatsApp/call the customer). WhatsApp ordering still available | Cloudflare Worker + Durable Object |
+| Visitor stats in the admin (visitors, products, sources, devices, cities, bag adds, orders; no cookies, no IPs stored) | Cloudflare Worker + Durable Object (free tier) |
 
 **Pages:** `index.html` (home), `shop.html` (filters; `?cat=men|women&occ=eid&col=blue&price=u2500`), `product.html?id=…` (one page per product), `lookbook.html`, `stylist.html` (`?tab=photo|gift`), `story.html`, `help.html`, plus `admin.html`.
 The header, phone menu, footer, bag and quick view are shared: they live in `assets/js/layout.js`, and `assets/js/core.js` boots every page. Each page's own script is in `assets/js/pages/`.

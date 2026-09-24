@@ -108,17 +108,73 @@ const OVERLAYS = `
 
   <aside class="drawer" data-drawer aria-hidden="true">
     <div class="drawer__scrim" data-close-bag></div>
-    <div class="drawer__panel" role="dialog" aria-label="Shopping bag">
-      <div class="drawer__head"><h3>Your bag</h3><button class="icon-btn" data-close-bag aria-label="Close">✕</button></div>
-      <div class="drawer__items" data-bag-items></div>
-      <div class="drawer__foot">
-        <div class="gift-note" data-gift-note hidden>
-          <div class="gift-note__head"><span class="mono">🎁 Gift message</span><button class="link-btn" data-gift-note-clear>Remove</button></div>
-          <p data-gift-note-text></p>
+    <div class="drawer__panel" role="dialog" aria-labelledby="drawer-title">
+      <div class="drawer__head">
+        <button class="icon-btn drawer__back" data-checkout-back aria-label="Back to bag" hidden>←</button>
+        <h3 id="drawer-title" data-drawer-title>Your bag</h3>
+        <button class="icon-btn" data-close-bag aria-label="Close">✕</button>
+      </div>
+
+      <div class="drawer__view" data-view="bag">
+        <div class="drawer__items" data-bag-items></div>
+        <div class="drawer__foot">
+          <div class="gift-note" data-gift-note hidden>
+            <div class="gift-note__head"><span class="mono">🎁 Gift message</span><button class="link-btn" data-gift-note-clear>Remove</button></div>
+            <p data-gift-note-text></p>
+          </div>
+          <div class="drawer__total"><span>Subtotal</span><strong data-bag-total>৳0</strong></div>
+          <button class="btn btn--solid btn--wide" data-checkout><span>Checkout</span></button>
+          <button class="link-btn drawer__alt" data-checkout-wa>or order on WhatsApp</button>
+          <p class="drawer__note" data-delivery-note></p>
         </div>
-        <div class="drawer__total"><span>Subtotal</span><strong data-bag-total>৳0</strong></div>
-        <button class="btn btn--solid btn--wide" data-checkout><span>Order on WhatsApp</span></button>
-        <p class="drawer__note" data-delivery-note></p>
+      </div>
+
+      <form class="drawer__view checkout" data-view="checkout" data-checkout-form novalidate hidden>
+        <div class="checkout__body">
+          <label class="cf"><span>Your name</span><input name="name" autocomplete="name" maxlength="60" required /></label>
+          <label class="cf"><span>Mobile number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="01XXXXXXXXX" maxlength="20" required /></label>
+          <fieldset class="cf"><legend>Delivery area</legend>
+            <div class="choice" data-area>
+              <label><input type="radio" name="area" value="inside" required /><span>Inside Chittagong city<small data-fee="inside"></small></span></label>
+              <label><input type="radio" name="area" value="outside" /><span>Outside Chittagong<small data-fee="outside"></small></span></label>
+            </div>
+          </fieldset>
+          <label class="cf"><span>Full address</span><textarea name="address" rows="3" autocomplete="street-address" maxlength="300" placeholder="House, road, area, thana, district" required></textarea></label>
+          <fieldset class="cf"><legend>Payment</legend>
+            <div class="choice">
+              <label><input type="radio" name="payment" value="cod" checked /><span>Cash on delivery<small>Pay when it arrives</small></span></label>
+              <label><input type="radio" name="payment" value="bkash" /><span>bKash<small>We’ll send payment details</small></span></label>
+            </div>
+          </fieldset>
+          <label class="cf"><span>Note <small>(optional)</small></span><input name="note" maxlength="300" placeholder="e.g. call before delivery" /></label>
+          <label class="cf cf--hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+          <label class="check"><input type="checkbox" name="remember" /> Remember my details on this device</label>
+          <p class="checkout__privacy">We use these details only to confirm and deliver your order.</p>
+        </div>
+        <div class="drawer__foot">
+          <div class="checkout__sum">
+            <span>Subtotal</span><span data-co-subtotal></span>
+            <span>Delivery</span><span data-co-delivery>Choose area</span>
+            <strong>Total</strong><strong data-co-total></strong>
+          </div>
+          <p class="checkout__err" data-co-error role="alert" hidden></p>
+          <button class="btn btn--solid btn--wide" data-place-order><span>Place order</span></button>
+        </div>
+      </form>
+
+      <div class="drawer__view done" data-view="done" hidden>
+        <div class="done__body">
+          <div class="done__tick" aria-hidden="true">✓</div>
+          <h4 data-done-title>Thank you!</h4>
+          <p>Your order number is</p>
+          <p class="done__id" data-done-id></p>
+          <p data-done-text></p>
+          <div class="done__items" data-done-items></div>
+        </div>
+        <div class="drawer__foot">
+          <a class="btn btn--ghost btn--wide" data-done-wa target="_blank" rel="noopener"><span>Send it to us on WhatsApp too</span></a>
+          <button class="link-btn drawer__alt" data-close-bag>Continue shopping</button>
+        </div>
       </div>
     </div>
   </aside>
