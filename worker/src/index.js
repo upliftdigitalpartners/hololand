@@ -53,7 +53,7 @@ export default {
     }
     if (!okOrigin) return json({ error: 'origin not allowed' }, 403, cors);
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405, cors);
-    if (limited(request)) return json({ error: 'slow down' }, 429, cors);
+    if (await limited(request, env.AI_LIMIT)) return json({ error: 'slow down' }, 429, cors);
 
     const route = pathname.replace(/\/+$/, '').split('/').pop();
     if (route === 'login') {
@@ -81,8 +81,15 @@ function allowedOrigins(env) {
   return list;
 }
 
-function limited(request) {
+/**
+ * Per-visitor rate limit. Uses Cloudflare's rate-limiting binding (shared across
+ * servers, see wrangler.toml) and falls back to a per-instance counter.
+ */
+async function limited(request, binding) {
   const ip = request.headers.get('CF-Connecting-IP') || 'anon';
+  if (binding) {
+    try { const { success } = await binding.limit({ key: ip }); return !success; } catch { /* fall through */ }
+  }
   const now = Date.now();
   const recent = (hits.get(ip) || []).filter((t) => now - t < 60_000);
   recent.push(now);
@@ -328,6 +335,10 @@ async function sameText(a, b) {
 async function login(request, env) {
   if (!env.ADMIN_TOKEN) throw httpError(503, 'Admin is not set up: add the ADMIN_TOKEN secret in Cloudflare.');
   const ip = request.headers.get('CF-Connecting-IP') || 'anon';
+  if (env.LOGIN_LIMIT) {
+    const { success } = await env.LOGIN_LIMIT.limit({ key: `login:${ip}` });
+    if (!success) throw httpError(429, 'Too many attempts. Wait a minute and try again.');
+  }
   const now = Date.now();
   const tries = (loginHits.get(ip) || []).filter((t) => now - t < 15 * 60_000);
   if (tries.length >= 8) throw httpError(429, 'Too many attempts. Try again in 15 minutes.');
@@ -395,6 +406,13 @@ function validateJson(path, text) {
       if (!p.name || !(p.price > 0) || !['men', 'women'].includes(p.cat) || !Array.isArray(p.images) || !p.images.length) {
         throw httpError(400, `Product "${p.id}" needs a name, price, category and at least one photo`);
       }
+      const bad = (msg) => httpError(400, `Product "${p.id}": ${msg}`);
+      if (!Number.isInteger(p.price) || p.price > 1_000_000) throw bad('price must be a whole number of taka');
+      if (!/^#[0-9a-f]{6}$/i.test(p.hex || '')) throw bad('colour swatch must look like #1a2b3c');
+      if (!p.images.every((b) => typeof b === 'string' && /^[a-z0-9][a-z0-9-]{0,60}$/.test(b))) throw bad('photo names may only use a-z, 0-9 and dashes');
+      if (p.tags && (!Array.isArray(p.tags) || !p.tags.every((t) => typeof t === 'string' && t.length <= 30))) throw bad('tags must be short words');
+      for (const k of ['name', 'code', 'type', 'color', 'fabric']) if (p[k] != null && (typeof p[k] !== 'string' || p[k].length > 120)) throw bad(`${k} is too long`);
+      for (const k of ['desc', 'desc_bn']) if (p[k] != null && (typeof p[k] !== 'string' || p[k].length > 1500)) throw bad('description is too long');
     }
   }
   if (path.endsWith('faq.json') && !Array.isArray(data.faq)) throw httpError(400, 'faq.json needs a "faq" list');

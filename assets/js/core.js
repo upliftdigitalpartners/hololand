@@ -185,7 +185,8 @@ function animations() {
     gsap.from(el, { clipPath: 'inset(100% 0 0 0 round 999px 999px 18px 18px)', duration: 1.5, ease: 'expo.inOut', scrollTrigger: { trigger: el, start: 'top 85%' } });
   });
   $$('[data-words]').forEach((story) => {
-    story.innerHTML = story.textContent.trim().split(/\s+/).map((w) => `<span class="w">${w}</span>`).join(' ');
+    const escW = (w) => w.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    story.innerHTML = story.textContent.trim().split(/\s+/).map((w) => `<span class="w">${escW(w)}</span>`).join(' ');
     gsap.to($$('.w', story), { opacity: 1, stagger: 0.1, ease: 'none', scrollTrigger: { trigger: story, start: 'top 80%', end: 'bottom 50%', scrub: true } });
   });
   $$('[data-counter]').forEach((el) => {
