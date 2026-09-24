@@ -15,7 +15,7 @@ A static site for Hololand (men's panjabi and women's knitwear, Bangladesh). It 
 | Size advisor in every product's quick view | Size chart + Groq |
 | Reviews with AI summaries, FAQ section (with Google FAQ markup), floating "Ask Hololand" button | Vanilla JS |
 | Owner tools (`admin.html`): product copy generator (EN/BN, SEO, Facebook, Instagram) and review summarizer | Groq, protected by an admin token |
-| Live Dhaka weather in the nav and the stylist | Open-Meteo (free, no key) |
+| Live Chittagong weather in the nav and the stylist | Open-Meteo (free, no key) |
 
 All libraries are vendored in `assets/vendor/` (no CDN dependency). Fonts come from Google Fonts.
 
