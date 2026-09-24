@@ -130,6 +130,23 @@ Each alert has the order number, customer name, phone, address, items and total,
 
 ---
 
+## Step 8: Facebook, Instagram & Google shop feed (optional)
+
+The Worker serves a live product feed at **https://hololand.upliftdigitalpartners.workers.dev/feed.xml** (also shown in admin → Products → 🛒 shop feed, with a Copy button). It lists every shown product, one line per size, with price in BDT, photos, colour, category and live stock (sold-out sizes appear as “out of stock”). Links carry `utm_source=catalog`, so visits show up in admin → Stats.
+
+**Facebook & Instagram** (Meta Commerce Manager, business.facebook.com/commerce):
+1. Create a catalogue (type: *E-commerce*) and connect your Facebook Page / Instagram account.
+2. Catalogue → **Data sources** → **Add items** → **Data feed** → **Scheduled feed** → paste the feed link → repeat **hourly** → currency **BDT**.
+3. Meta may ask you to verify **hololandbd.com** (Business settings → Brand safety → Domains).
+
+Menu names in Meta change now and then; look for “data feed” / “scheduled feed”. Whether you can **tag products in posts or open a shop** depends on Meta’s rules for Bangladesh; Commerce Manager tells you. The catalogue works for **catalogue ads** either way.
+
+**Google (free listings on Google Shopping):** Merchant Center (merchants.google.com) → add **hololandbd.com** and verify it → Products → **Add products** → **Scheduled fetch** → paste the same link, daily.
+
+New photos uploaded in the admin automatically get the JPG copy the feed needs.
+
+---
+
 ## If something doesn't work
 
 | What you see | Fix |

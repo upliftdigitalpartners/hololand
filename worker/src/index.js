@@ -58,9 +58,18 @@ export default {
       const stock = await env.ORDERS.get(env.ORDERS.idFromName('global')).getStock();
       return json({ stock }, 200, { ...cors, 'Cache-Control': 'public, max-age=15' });
     }
+    if (request.method === 'GET' && /\/feed\.xml$/.test(pathname)) {
+      // Product feed for Facebook / Instagram (Commerce Manager) and Google Merchant Center.
+      try {
+        return new Response(await productFeed(env), { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=900' } });
+      } catch (err) {
+        console.error('feed', err);
+        return new Response('Feed temporarily unavailable', { status: 503 });
+      }
+    }
     if (request.method === 'GET') {
       // Handy check after setup: open the Worker URL in a browser.
-      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN }, 200, cors);
+      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN, feed: true }, 200, cors);
     }
     if (!okOrigin) return json({ error: 'origin not allowed' }, 403, cors);
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405, cors);
@@ -139,10 +148,12 @@ async function loadData(env) {
   cache.byId = new Map(p.products.filter((x) => !x.hidden).map((x) => [x.id, x]));
   cache.sizes = { men: (sz.men?.sizes || []).map((r) => String(r.size)), women: (sz.women?.sizes || []).map((r) => String(r.size)) };
   // Sizes set per category in the admin win over the size charts.
-  cache.catNames = { men: "Men's panjabi", women: "Women's knitwear" };
+  cache.catNames = { men: 'Men · Panjabi', women: 'Women · Knitwear' };
+  cache.catGroups = { men: 'men', women: 'women' };
   for (const cat of Array.isArray(c.settings?.categories) ? c.settings.categories : []) {
     if (Array.isArray(cat.sizes) && cat.sizes.length) cache.sizes[cat.id] = cat.sizes.map(String);
     if (cat.name) cache.catNames[cat.id] = String(cat.name).slice(0, 60);
+    if (cat.group) cache.catGroups[cat.id] = cat.group;
   }
   const dl = c.settings?.delivery || {};
   const num = (v, d) => (Number.isFinite(parseInt(v, 10)) ? Math.max(0, parseInt(v, 10)) : d);
@@ -400,7 +411,7 @@ async function isAdmin(request, env) {
 }
 
 const EDITABLE_JSON = /^assets\/data\/(products|faq|content|reviews|sizes)\.json$/;
-const EDITABLE_IMG = /^assets\/img\/[a-z0-9][a-z0-9-]{0,60}-(lg|sm)\.webp$/;
+const EDITABLE_IMG = /^assets\/img\/(?:[a-z0-9][a-z0-9-]{0,60}-(lg|sm)\.webp|feed\/[a-z0-9][a-z0-9-]{0,60}\.jpg)$/;
 
 async function gh(env, path, init = {}) {
   if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) throw httpError(503, 'Publishing is not set up: add GITHUB_TOKEN (secret) and GITHUB_REPO in Cloudflare.');
@@ -741,4 +752,66 @@ async function setStock(request, env) {
     clean[size] = n;
   }
   return { stock: await ordersStub(env).setStock(product, clean) };
+}
+
+/* ---------------- product feed ----------------
+   One item per product and size (grouped by item_group_id), in the Google Shopping
+   RSS format that Meta Commerce Manager and Google Merchant Center both read. */
+const xmlEsc = (v) => String(v ?? '').replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]))
+  // eslint-disable-next-line no-control-regex
+  .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+
+async function productFeed(env) {
+  const data = await loadData(env);
+  const origin = allowedOrigins(env).find((o) => o.startsWith('https://')) || (env.SITE_URL || '').replace(/\/$/, '');
+  const stock = env.ORDERS ? await env.ORDERS.get(env.ORDERS.idFromName('global')).getStock() : {};
+  const GENDER = { men: 'male', women: 'female' };
+  const items = [];
+  for (const p of data.products) {
+    const group = data.catGroups?.[p.cat] || 'all';
+    const sizes = data.sizes[p.cat]?.length ? data.sizes[p.cat] : ['Free size'];
+    const link = `${origin}/product.html?id=${encodeURIComponent(p.id)}&utm_source=catalog`;
+    const images = p.images.map((b) => `${origin}/assets/img/feed/${b}.jpg`);
+    const title = p.type && !p.name.toLowerCase().includes(p.type.toLowerCase()) ? `${p.name} ${p.type}` : p.name;
+    const dl = data.delivery || { inside: 70, freeOver: 5000 };
+    const ship = dl.freeOver && p.price >= dl.freeOver ? 0 : dl.inside;
+    for (const size of sizes) {
+      const n = stock[p.id]?.[size];
+      const tracked = Number.isFinite(n);
+      const fields = [
+        ['g:id', `${p.id}-${size}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-')],
+        ['g:item_group_id', p.id],
+        ['g:title', `${title} (${size})`],
+        ['g:description', p.desc || `${p.name}: ${p.color} ${p.type}, ${p.fabric}. Designed in Bangladesh by Hololand.`],
+        ['g:link', link],
+        ['g:image_link', images[0]],
+        ...images.slice(1, 10).map((u) => ['g:additional_image_link', u]),
+        ['g:availability', tracked && n <= 0 ? 'out of stock' : 'in stock'],
+        ...(tracked ? [['g:quantity_to_sell_on_facebook', Math.max(0, n)]] : []),
+        ['g:price', `${p.price}.00 BDT`],
+        ['g:condition', 'new'],
+        ['g:brand', 'Hololand'],
+        ['g:google_product_category', '1604'], // Apparel & Accessories > Clothing
+        ['g:product_type', data.catNames?.[p.cat] || p.cat],
+        ['g:color', p.color],
+        ['g:size', size],
+        ...(GENDER[group] ? [['g:gender', GENDER[group]]] : [['g:gender', 'unisex']]),
+        ['g:age_group', group === 'kids' ? 'kids' : 'adult'],
+        ['g:shipping', null],
+      ];
+      items.push(`  <item>\n${fields.map(([k, v]) => (k === 'g:shipping'
+        ? `    <g:shipping><g:country>BD</g:country><g:service>Home delivery</g:service><g:price>${ship}.00 BDT</g:price></g:shipping>`
+        : `    <${k}>${xmlEsc(v)}</${k}>`)).join('\n')}\n  </item>`);
+    }
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+<channel>
+  <title>Hololand</title>
+  <link>${xmlEsc(origin)}</link>
+  <description>Hololand: panjabi, knitwear and more, made in Bangladesh</description>
+${items.join('\n')}
+</channel>
+</rss>
+`;
 }

@@ -66,6 +66,11 @@ def save_variants(name, im):
         out = OUT / f"{name}-{suffix}.webp"
         im.resize(target, Image.LANCZOS).save(out, "WEBP", quality=80, method=6)
         print(f"  {out.relative_to(ROOT)}  {target[0]}x{target[1]}  {out.stat().st_size // 1024} KB")
+    # JPG copy for the shop feed (Facebook / Instagram / Google want JPG or PNG)
+    feed = OUT / "feed" / f"{name}.jpg"
+    feed.parent.mkdir(exist_ok=True)
+    w, h = im.size
+    im.convert("RGB").resize((1080, round(h * 1080 / w)), Image.LANCZOS).save(feed, "JPEG", quality=82, optimize=True, progressive=True)
 
 
 def logos():
