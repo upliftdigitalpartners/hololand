@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { DEFAULT_CATEGORIES, GROUPS, cleanCategories } from './categories.js';
 
 // Refuse to run inside another site's frame (clickjacking).
 if (window.top !== window.self) { document.body.innerHTML = ''; throw new Error('framed'); }
@@ -98,8 +99,13 @@ async function start() {
   state.faq.faq ||= [];
   state.reviews.reviews ||= {}; state.reviews.summaries ||= {};
   state.content.settings ||= {}; state.content.texts ||= {};
+  if (!cleanCategories(state.content.settings.categories)) {
+    // First time: start from the built-in categories, keeping any custom card texts.
+    state.content.settings.categories = DEFAULT_CATEGORIES.map((c) => ({ ...c, lede: state.content.texts[`collections.${c.id}`] || c.lede }));
+  }
   resetDirty();
-  renderProducts(); renderTexts(); renderFaq(); renderReviewsTab();
+  fillCatSelect($('[data-cat-filter]'), '', true);
+  renderProducts(); renderCategories(); renderTexts(); renderFaq(); renderReviewsTab();
   loadOrders();
 }
 
@@ -117,7 +123,7 @@ function renderProducts() {
   $('[data-plist]').innerHTML = list.map((p) => `
     <div class="prow ${p.hidden ? 'is-hidden' : ''}" data-id="${esc(p.id)}">
       <img src="${esc(imgSrc(p.images[0]))}" alt="" loading="lazy" />
-      <div class="prow__name"><strong>${esc(p.name)}</strong><span>${esc(p.code)} · ${p.cat === 'men' ? 'Panjabi' : 'Knitwear'}${p.hidden ? ' · hidden' : ''}</span></div>
+      <div class="prow__name"><strong>${esc(p.name)}</strong><span>${esc(p.code)} · ${esc(catName(p.cat))}${p.hidden ? ' · hidden' : ''}</span></div>
       <label class="prow__price">৳<input type="number" min="1" value="${esc(p.price)}" data-price aria-label="Price" /></label>
       <label class="check"><input type="checkbox" data-shown ${p.hidden ? '' : 'checked'} /> Shown</label>
       <button class="btn btn--ghost btn--sm" data-edit><span>Edit</span></button>
@@ -136,6 +142,95 @@ $('[data-plist]').addEventListener('click', (e) => {
 });
 $('[data-new-product]').addEventListener('click', () => openEditor(null));
 
+/* ---------------- categories ---------------- */
+const cats = () => state.content.settings.categories;
+const catName = (id) => cats().find((c) => c.id === id)?.name || id;
+const newCats = new Set(); // added this session: their id still follows the name
+function fillCatSelect(sel, value, withAll = false) {
+  const keep = value ?? sel.value;
+  sel.innerHTML = (withAll ? '<option value="">All categories</option>' : '')
+    + cats().map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  sel.value = cats().some((c) => c.id === keep) || (withAll && !keep) ? keep : (withAll ? '' : cats()[0]?.id);
+}
+function renderCategories() {
+  const count = (id) => state.products.products.filter((p) => p.cat === id).length;
+  $('[data-cat-list]').innerHTML = cats().map((c, i) => `
+    <div class="faqcard catcard" data-ci="${i}">
+      <div class="faqcard__head">
+        <span class="mono">${esc(c.name || 'New category')} · ${count(c.id)} product${count(c.id) === 1 ? '' : 's'}</span>
+        <span class="catcard__btns">
+          <button class="link-btn" data-cat-move="-1" ${i ? '' : 'disabled'} aria-label="Move up">↑</button>
+          <button class="link-btn" data-cat-move="1" ${i < cats().length - 1 ? '' : 'disabled'} aria-label="Move down">↓</button>
+          <button class="link-btn danger" data-cat-del>Delete</button>
+        </span>
+      </div>
+      <div class="grid2">
+        <label class="f"><span>Name in the shop</span><input data-ck="name" value="${esc(c.name)}" placeholder="e.g. Men · Shirt" maxlength="60" /></label>
+        <label class="f"><span>Section (menu)</span><select data-ck="group">${Object.entries(GROUPS).map(([k, v]) => `<option value="${k}" ${c.group === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+        <label class="f"><span>Sizes (comma separated)</span><input data-ck="sizes" value="${esc((c.sizes || []).join(', '))}" placeholder="e.g. S, M, L, XL or Free size" /></label>
+        <label class="f"><span>Product type (default for new products)</span><input data-ck="type" value="${esc(c.type || '')}" placeholder="e.g. Shirt" maxlength="40" /></label>
+        <label class="f"><span>Page heading <small>(optional)</small></span><input data-ck="title" value="${esc(c.title || '')}" placeholder="e.g. Men’s Shirts" maxlength="80" /></label>
+        <label class="f"><span>Link</span><input value="hololandbd.com/shop.html?cat=${esc(c.id)}" readonly /></label>
+      </div>
+      <label class="f"><span>Short description <small>(shown on the home page card and the shop page)</small></span><textarea rows="2" data-ck="lede" maxlength="300">${esc(c.lede || '')}</textarea></label>
+    </div>`).join('');
+}
+function refreshCatUses() {
+  fillCatSelect($('[data-cat-filter]'), undefined, true);
+  renderProducts();
+}
+$('[data-cat-list]').addEventListener('input', (e) => {
+  const card = e.target.closest('[data-ci]');
+  const k = e.target.dataset.ck;
+  if (!card || !k) return;
+  const c = cats()[+card.dataset.ci];
+  if (k === 'sizes') c.sizes = e.target.value.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20);
+  else c[k] = e.target.value;
+  if (k === 'name') {
+    card.querySelector('.mono').textContent = c.name || 'New category';
+    if (newCats.has(c.id)) {
+      // New categories take their link from the name, e.g. "Men · Shirt" → men-shirt
+      const base = slug(c.name).slice(0, 36).replace(/-+$/, '') || 'category';
+      let id = base, n = 2;
+      while (cats().some((x) => x !== c && x.id === id)) id = `${base}-${n++}`;
+      newCats.delete(c.id); newCats.add(id); c.id = id;
+      card.querySelector('input[readonly]').value = `hololandbd.com/shop.html?cat=${id}`;
+    }
+  }
+  markDirty('content');
+});
+$('[data-cat-list]').addEventListener('change', (e) => { if (e.target.dataset.ck === 'name') refreshCatUses(); });
+$('[data-cat-list]').addEventListener('click', (e) => {
+  const card = e.target.closest('[data-ci]');
+  if (!card) return;
+  const i = +card.dataset.ci;
+  const list = cats();
+  const mv = e.target.closest('[data-cat-move]');
+  if (mv) {
+    const j = i + +mv.dataset.catMove;
+    [list[i], list[j]] = [list[j], list[i]];
+    markDirty('content'); renderCategories(); refreshCatUses();
+  }
+  if (e.target.closest('[data-cat-del]')) {
+    const n = state.products.products.filter((p) => p.cat === list[i].id).length;
+    if (n) { toast(`Move its ${n} product${n > 1 ? 's' : ''} to another category first (Products → Edit).`, 4500); return; }
+    if (list.length === 1) { toast('You need at least one category.'); return; }
+    if (!confirm(`Delete the category “${list[i].name}”?`)) return;
+    list.splice(i, 1);
+    markDirty('content'); renderCategories(); refreshCatUses();
+  }
+});
+$('[data-cat-add]').addEventListener('click', () => {
+  let id = 'new-category', n = 2;
+  while (cats().some((c) => c.id === id)) id = `new-category-${n++}`;
+  cats().push({ id, name: '', group: 'men', type: '', sizes: ['S', 'M', 'L', 'XL'], title: '', lede: '' });
+  newCats.add(id);
+  markDirty('content'); renderCategories();
+  const cards = $$('[data-cat-list] [data-ci]');
+  cards.at(-1).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  cards.at(-1).querySelector('[data-ck="name"]').focus();
+});
+
 /* ---------------- product editor ---------------- */
 let editing = null;   // product object being edited
 let isNew = false;
@@ -145,8 +240,9 @@ const F = (k) => form.elements[k];
 function openEditor(id) {
   isNew = !id;
   editing = id ? state.products.products.find((p) => p.id === id)
-    : { id: '', code: '', name: '', cat: 'men', type: 'Panjabi', price: 0, color: '', hex: '#6b1b24', images: [], fabric: '', tags: [], desc: '' };
+    : { id: '', code: '', name: '', cat: cats()[0].id, type: cats()[0].type || '', price: 0, color: '', hex: '#6b1b24', images: [], fabric: '', tags: [], desc: '' };
   $('[data-editor-title]').textContent = isNew ? 'New product' : `Edit ${editing.code}`;
+  fillCatSelect(F('cat'), editing.cat);
   for (const k of ['name', 'code', 'price', 'cat', 'type', 'color', 'hex', 'fabric', 'desc', 'desc_bn']) F(k).value = editing[k] ?? '';
   F('tags').value = (editing.tags || []).join(', ');
   F('hide').checked = !!editing.hidden;
@@ -157,6 +253,11 @@ function openEditor(id) {
   $('[data-editor]').hidden = false;
   F('name').focus();
 }
+form.elements.cat.addEventListener('change', () => {
+  // New products pick up the category's usual type (e.g. Shirt) unless one was typed.
+  const c = cats().find((x) => x.id === F('cat').value);
+  if (isNew && c?.type && (!F('type').value.trim() || cats().some((x) => x.type === F('type').value.trim()))) F('type').value = c.type;
+});
 function closeEditor() { $('[data-editor]').hidden = true; editing = null; }
 $$('[data-close-editor]').forEach((b) => b.addEventListener('click', () => {
   if (isNew && editing && !editing.id) { closeEditor(); return; } // discard unsaved new product
@@ -219,7 +320,7 @@ function readForm() {
   p.code = F('code').value.trim().toUpperCase();
   p.price = Math.round(+F('price').value);
   p.cat = F('cat').value;
-  p.type = F('type').value.trim() || (p.cat === 'men' ? 'Panjabi' : 'Knitwear');
+  p.type = F('type').value.trim() || cats().find((c) => c.id === p.cat)?.type || '';
   p.color = F('color').value.trim();
   p.hex = F('hex').value;
   p.fabric = F('fabric').value.trim();
@@ -296,8 +397,6 @@ const TEXT_FIELDS = [
     ['texts.hero.line1', 'Hero: title line 1'],
     ['texts.hero.line2', 'Hero: title line 2 (orange italic)'],
     ['texts.hero.sub', 'Hero: subtitle', '', true],
-    ['texts.collections.men', 'Men’s collection card text', '', true],
-    ['texts.collections.women', 'Women’s collection card text', '', true],
   ] },
   { group: 'Our story', fields: [
     ['texts.story.text', 'Story paragraph', '', true],
@@ -424,6 +523,8 @@ $('[data-publish]').addEventListener('click', async () => {
     files.push({ path: `assets/img/${base}-sm.webp`, content: v.sm, encoding: 'base64' });
   }
   if (!files.length) return;
+  const unnamed = cats().findIndex((c) => !String(c.name || '').trim());
+  if (unnamed >= 0) { notice('⚠️ Give every category a name before publishing (Categories tab).'); return; }
   btn.disabled = true; btn.innerHTML = '<span>Publishing…</span>';
   try {
     const what = [...dirty].join(', ') + (newImages.length ? `${dirty.size ? ', ' : ''}${newImages.length} photo(s)` : '');

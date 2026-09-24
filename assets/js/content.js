@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { loadData } from './ai.js';
+import { cleanCategories } from './categories.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -17,6 +18,7 @@ export async function applyContent(products) {
   if (set.deliveryNote) CONFIG.deliveryNote = set.deliveryNote;
   if (set.socials) CONFIG.socials = { ...CONFIG.socials, ...set.socials };
   CONFIG.store = set.store || {};
+  CONFIG.categories = cleanCategories(set.categories);
   if (set.delivery) {
     const n = (v) => (Number.isFinite(parseInt(v, 10)) ? Math.max(0, parseInt(v, 10)) : undefined);
     CONFIG.delivery = Object.fromEntries(Object.entries({ inside: n(set.delivery.inside), outside: n(set.delivery.outside), freeOver: n(set.delivery.freeOver) }).filter(([, v]) => v !== undefined));

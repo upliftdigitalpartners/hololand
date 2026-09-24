@@ -1,6 +1,5 @@
 import { aiEnabled, callAI, loadData, esc } from './ai.js';
-
-const SIZES = { men: ['38', '40', '42', '44', '46'], women: ['S', 'M', 'L', 'XL'] };
+import { catOf } from './categories.js';
 let charts = null;
 const chartsReady = loadData('sizes').then((d) => { charts = d; });
 
@@ -62,6 +61,7 @@ export function createSizer(root) {
     const weightKg = +f.get('kg');
     if (!weightKg) return;
     const chart = charts[product.cat];
+    if (!chart?.sizes?.length) return;
     let result = localSize(chart, { heightCm, weightKg, fit });
     if (aiEnabled) {
       out.textContent = 'Checking…';
@@ -80,7 +80,13 @@ export function createSizer(root) {
       size = null;
       form.hidden = true;
       out.textContent = '';
-      q('[data-sizes]').innerHTML = SIZES[p.cat].map((s) => `<button type="button" data-size="${s}">${s}</button>`).join('');
+      const sizes = catOf(p.cat).sizes;
+      q('[data-sizes]').innerHTML = sizes.map((s) => `<button type="button" data-size="${esc(s)}">${esc(s)}</button>`).join('');
+      if (sizes.length === 1) select(sizes[0]); // e.g. "Free size"
+      // "Find my size" needs a measurement chart (assets/data/sizes.json); new categories may not have one.
+      const toggle = q('[data-size-toggle]');
+      toggle.hidden = true;
+      chartsReady.then(() => { if (product === p) toggle.hidden = !charts?.[p.cat]?.sizes?.length; });
     },
     get size() { return size; },
     shake() {

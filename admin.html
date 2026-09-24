@@ -42,6 +42,7 @@
       <nav class="bar__tabs" role="tablist">
         <button class="is-active" data-tab="orders">Orders <b class="tab-badge" data-new-badge hidden></b></button>
         <button data-tab="products">Products</button>
+        <button data-tab="categories">Categories</button>
         <button data-tab="texts">Texts &amp; settings</button>
         <button data-tab="faq">FAQ</button>
         <button data-tab="reviews">Reviews</button>
@@ -75,13 +76,20 @@
     <section class="tab" data-tab-pane="products">
       <div class="toolbar">
         <input type="search" class="inp" placeholder="Search name or code…" data-search />
-        <select class="inp" data-cat-filter><option value="">All categories</option><option value="men">Men · Panjabi</option><option value="women">Women · Knitwear</option></select>
+        <select class="inp" data-cat-filter><option value="">All categories</option></select>
         <button class="btn btn--ghost btn--sm" data-new-product><span>+ New product</span></button>
       </div>
       <div class="plist" data-plist></div>
     </section>
 
     <!-- Texts & settings -->
+    <!-- Categories -->
+    <section class="tab" data-tab-pane="categories">
+      <p class="hint">Each category gets its own tab in the shop and its own sizes. The <strong>Section</strong> decides which menu link it appears under (Men, Women, Kids, or only under Shop for “Everyone”). After changes, click <strong>Publish</strong>.</p>
+      <div data-cat-list></div>
+      <button class="btn btn--ghost btn--sm" data-cat-add><span>+ Add category</span></button>
+    </section>
+
     <section class="tab" data-tab-pane="texts">
       <div class="formgrid" data-texts></div>
     </section>
@@ -149,7 +157,7 @@
           <label class="f"><span>Name</span><input name="name" required /></label>
           <label class="f"><span>Code</span><input name="code" required placeholder="MP-230" /></label>
           <label class="f"><span>Price (৳)</span><input name="price" type="number" min="1" step="1" required /></label>
-          <label class="f"><span>Category</span><select name="cat"><option value="men">Men · Panjabi</option><option value="women">Women · Knitwear</option></select></label>
+          <label class="f"><span>Category</span><select name="cat"></select></label>
           <label class="f"><span>Type</span><input name="type" placeholder="Panjabi" /></label>
           <label class="f"><span>Colour name</span><input name="color" placeholder="Maroon" /></label>
           <label class="f"><span>Colour swatch</span><input name="hex" type="color" /></label>
