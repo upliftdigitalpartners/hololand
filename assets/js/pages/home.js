@@ -1,5 +1,5 @@
-import { boot, $, $$, webgl, reduced, animateCards } from '../core.js';
-import { img, cardHTML } from '../shop.js';
+import { boot, $, $$, reduced, lite, animateCards } from '../core.js';
+import { img, cardHTML, esc, money, productUrl } from '../shop.js';
 
 // Old one-page links (hololandbd.com/#shop …) go to the new pages.
 const LEGACY = { '#shop': 'shop.html', '#lookbook': 'lookbook.html', '#stylist': 'stylist.html', '#story': 'story.html', '#faq': 'help.html' };
@@ -47,7 +47,8 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
   // Marquee driven by time + scroll velocity
   const track = $('[data-marquee]');
   let x = 0, dir = -1;
-  gsap.ticker.add((t, dt) => {
+  if (lite) track.classList.add('is-css'); // phones: a plain CSS loop, no per-frame work
+  else gsap.ticker.add((t, dt) => {
     const v = lenis ? lenis.velocity : 0;
     if (Math.abs(v) > 0.5) dir = v > 0 ? -1 : 1;
     x += dir * (0.04 + Math.min(Math.abs(v) * 0.02, 0.6)) * dt;
@@ -78,17 +79,48 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
   gsap.from('.loader__mark .m-b', { scale: 0.4, opacity: 0, transformOrigin: '50% 60%', duration: 1.1, ease: 'expo.out', delay: 0.2 });
   gsap.from('.loader__word', { letterSpacing: '1.2em', opacity: 0, duration: 1.4, ease: 'expo.out', delay: 0.3 });
 
-  let hero = null;
+  // Hero: a product photo slideshow (swipe on phones, tap to shop).
+  const slides = HERO_SLIDES.filter((s) => byId.has(s.id));
+  if (!slides.length) products.slice(0, 5).forEach((p) => slides.push({ id: p.id, src: img(p.images[0], 'lg') }));
+  const slidesEl = $('[data-hero-slides]');
+  slidesEl.innerHTML = slides.map((s, i) => {
+    const p = byId.get(s.id);
+    return `<a class="hero__slide ${i ? '' : 'is-active'}" href="${productUrl(s.id)}" ${i ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="${esc(p ? `${p.name}, ${money(p.price)}` : 'Shop')}">
+      <img src="${s.src}" alt="" decoding="async" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} /></a>`;
+  }).join('');
+  HERO_SLIDES.length = 0; HERO_SLIDES.push(...slides);
+  const INTERVAL = reduced ? 8 : 5;
+  let current = 0, timer = null, running = true;
+  const go = (i) => {
+    const els = $$('.hero__slide', slidesEl);
+    current = (i + els.length) % els.length;
+    els.forEach((el, k) => {
+      el.classList.toggle('is-active', k === current);
+      el.setAttribute('aria-hidden', k === current ? 'false' : 'true');
+      el.tabIndex = k === current ? 0 : -1;
+    });
+    const next = els[(current + 1) % els.length]?.querySelector('img');
+    if (next) next.loading = 'eager'; // warm the next photo
+    onSlide(current, INTERVAL);
+    schedule();
+  };
+  const schedule = () => { clearTimeout(timer); if (running && slides.length > 1) timer = setTimeout(() => go(current + 1), INTERVAL * 1000); };
+  const setRunning = (on) => { running = on; if (on) schedule(); else clearTimeout(timer); };
+  // Swipe left/right on phones
+  let sx = null, sy = 0;
+  slidesEl.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; }, { passive: true });
+  slidesEl.addEventListener('pointerup', (e) => {
+    if (sx == null) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    sx = null;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) { go(current + (dx < 0 ? 1 : -1)); slidesEl.dataset.swiped = '1'; }
+  });
+  slidesEl.addEventListener('click', (e) => { if (slidesEl.dataset.swiped) { e.preventDefault(); delete slidesEl.dataset.swiped; } });
   const loadHero = async () => {
-    if (!webgl) { progress(1); heroCaption.textContent = caption(0); return; }
-    try {
-      const { Hero } = await import('../gl/hero.js');
-      hero = new Hero($('[data-hero-canvas]'), HERO_SLIDES, { onSlide });
-      await hero.load((p) => progress(p * 0.9));
-    } catch (err) {
-      console.error(err);
-      document.documentElement.classList.add('no-webgl');
-    }
+    const first = slidesEl.querySelector('img');
+    await (first.complete ? Promise.resolve() : new Promise((r) => { first.onload = first.onerror = r; }));
+    await first.decode?.().catch(() => {});
+    progress(1);
   };
   // Returning visitors in the same session get a shorter loader.
   let seen = false;
@@ -110,12 +142,11 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
         .from(titleSplit.chars, { yPercent: 110, duration: 1.3, stagger: 0.025, ease: 'expo.out' }, '-=0.55')
         .from('[data-hero-reveal]', { y: 26, opacity: 0, duration: 1.1, stagger: 0.08, ease: 'expo.out' }, '-=1.0')
         .from('.nav > *', { y: -30, opacity: 0, duration: 1, stagger: 0.08, ease: 'expo.out' }, '-=1.1');
-      if (hero) hero.autoplay(gsap, reduced ? 8 : 5.5);
-      else onSlide(0, 5.5);
-      gsap.timeline({ scrollTrigger: { trigger: '.hero', start: 'top top', end: '+=100%', pin: true, scrub: true, onUpdate: (st) => hero?.setScroll(st.progress) } })
-        .to('.hero__content', { yPercent: -30, opacity: 0, ease: 'none' }, 0)
-        .to('.hero__meta, .hero__scroll', { opacity: 0, ease: 'none', duration: 0.4 }, 0);
-      new IntersectionObserver(([e]) => hero?.setRunning(e.isIntersecting)).observe($('[data-hero-canvas]'));
+      go(0);
+      // Gentle fade as you scroll past (no pinning: keeps phone scrolling smooth).
+      if (!lite) gsap.to('.hero__content, .hero__meta, .hero__scroll', { y: -60, opacity: 0, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom 30%', scrub: true } });
+      new IntersectionObserver(([e]) => setRunning(e.isIntersecting && !document.hidden)).observe(slidesEl);
+      document.addEventListener('visibilitychange', () => setRunning(!document.hidden));
     },
   };
 });

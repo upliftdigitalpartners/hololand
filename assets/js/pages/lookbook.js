@@ -1,4 +1,4 @@
-import { boot, $, webgl } from '../core.js';
+import { boot, $, webgl, lite } from '../core.js';
 import { img, money, esc, productUrl } from '../shop.js';
 
 boot('lookbook', async ({ products, gsap, ScrollTrigger }) => {
@@ -12,7 +12,13 @@ boot('lookbook', async ({ products, gsap, ScrollTrigger }) => {
     </a>`).join('');
   gsap.from('.lb-tile', { y: 60, opacity: 0, duration: 1, stagger: 0.04, ease: 'expo.out', scrollTrigger: { trigger: '.lb-masonry', start: 'top 85%' } });
 
-  if (!webgl) { $('.lookbook').hidden = true; return; }
+  if (!webgl || lite) {
+    // Phones get the photo grid only: faster, and easier to browse with a thumb.
+    $('.lookbook').hidden = true;
+    $('.lb-hero__scroll')?.remove();
+    $('.page-lede').textContent = 'Shot against the arches that inspired the collection. Tap any look to shop it.';
+    return;
+  }
   const code = $('[data-lb-code]'), name = $('[data-lb-name]'), price = $('[data-lb-price]'), link = $('[data-lb-link]');
   const setCaption = (item) => {
     link.href = productUrl(item.id);
