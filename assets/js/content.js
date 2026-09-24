@@ -35,6 +35,16 @@ export async function applyContent(products) {
     else el.textContent = count(cat);
   });
 
+  // Cloudflare Web Analytics (cookie-free visitor stats); token set in the admin.
+  const token = String(set.analyticsToken || '').trim();
+  if (/^[a-f0-9]{32}$/i.test(token) && !document.querySelector('script[data-cf-beacon]')) {
+    const s = document.createElement('script');
+    s.defer = true;
+    s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+    s.dataset.cfBeacon = JSON.stringify({ token });
+    document.head.append(s);
+  }
+
   if (set.announcement && set.announcement.trim()) {
     $('[data-announce-text]').textContent = set.announcement;
     $('[data-announce]').hidden = false;

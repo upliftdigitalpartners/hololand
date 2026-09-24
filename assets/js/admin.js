@@ -284,6 +284,7 @@ const TEXT_FIELDS = [
     ['settings.store.hours', 'Opening hours', 'e.g. Sat–Thu 11am–9pm'],
     ['settings.store.mapUrl', 'Google Maps link', 'https://maps.app.goo.gl/…'],
   ] },
+  { group: 'Visitor stats', help: 'Paste the token from Cloudflare → Analytics & Logs → Web Analytics → your site → “Manage site” (the 32-character value inside the snippet). Leave empty to turn stats off.', fields: [['settings.analyticsToken', 'Cloudflare Web Analytics token', 'e.g. 1a2b3c4d5e6f…']] },
   { group: 'Social links', fields: [['settings.socials.facebook', 'Facebook'], ['settings.socials.instagram', 'Instagram'], ['settings.socials.tiktok', 'TikTok']] },
   { group: 'Homepage', fields: [
     ['texts.hero.eyebrow', 'Hero: small line above the title'],
