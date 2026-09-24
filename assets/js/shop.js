@@ -5,10 +5,13 @@ import { createSizer } from './size.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-export const img = (base, size = 'sm') => `assets/img/${base}-${size}.webp`;
+export const img = (base, size = 'sm') => `assets/img/${String(base).replace(/[^a-z0-9-]/gi, '')}-${size}.webp`;
 export const money = (n) => `${CONFIG.currency}${n.toLocaleString('en-IN')}`;
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const productUrl = (id) => `product.html?id=${encodeURIComponent(id)}`;
+/** Only allow #rrggbb colours into style attributes. */
+export const safeHex = (h) => (/^#[0-9a-f]{6}$/i.test(h || '') ? h : '#888888');
+const safeImg = (b) => String(b).replace(/[^a-z0-9-]/gi, '');
 
 const STORE_KEY = 'hololand.bag.v1';
 const GIFT_KEY = 'hololand.gift.v1';
@@ -82,7 +85,7 @@ export function cardHTML(p, i = 0) {
         <div>
           <span class="mono">${esc(p.code)}</span>
           <h3>${esc(p.name)}</h3>
-          <span class="card__color"><i class="swatch" style="background:${p.hex}"></i>${esc(p.color)}</span>
+          <span class="card__color"><i class="swatch" style="background:${safeHex(p.hex)}"></i>${esc(p.color)}</span>
           ${r ? `<span class="card__rating">${stars(r.avg)} <small>(${r.count})</small></span>` : ''}
         </div>
         <span class="card__price">${money(p.price)}</span>
@@ -113,10 +116,10 @@ export function openQuickView(id) {
   $('[data-qv-lang]', m).hidden = !p.desc_bn;
   $$('[data-lang]', m).forEach((b) => b.classList.toggle('is-active', b.dataset.lang === 'en'));
   $('[data-qv-fabric]', m).textContent = `${p.color} · ${p.fabric}`;
-  $('[data-qv-swatch]', m).style.background = p.hex;
+  $('[data-qv-swatch]', m).style.background = safeHex(p.hex);
   $('[data-qv-link]', m).href = productUrl(p.id);
   $('[data-qv-thumbs]', m).innerHTML = p.images.length > 1
-    ? p.images.map((b, i) => `<button class="${i ? '' : 'is-active'}" data-thumb="${b}" aria-label="Image ${i + 1}"><img src="${img(b)}" alt="" /></button>`).join('')
+    ? p.images.map((b, i) => `<button class="${i ? '' : 'is-active'}" data-thumb="${safeImg(b)}" aria-label="Image ${i + 1}"><img src="${img(b)}" alt="" /></button>`).join('')
     : '';
   qvSizer.setProduct(p);
   m.classList.add('is-open');

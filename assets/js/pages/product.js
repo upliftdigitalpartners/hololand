@@ -1,5 +1,5 @@
 import { boot, $, $$, animateCards } from '../core.js';
-import { img, money, esc, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady } from '../shop.js';
+import { img, money, esc, safeHex, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady } from '../shop.js';
 import { sizerHTML } from '../layout.js';
 import { createSizer } from '../size.js';
 import { loadData } from '../ai.js';
@@ -56,7 +56,7 @@ boot('product', async ({ products, gsap }) => {
   const main = $('[data-pdp-img]');
   const show = (base) => { main.src = img(base, 'lg'); $$('[data-pdp-thumbs] button').forEach((b) => b.classList.toggle('is-active', b.dataset.img === base)); };
   main.alt = `${p.name}, ${p.color} ${p.type}`;
-  $('[data-pdp-thumbs]').innerHTML = p.images.length > 1 ? p.images.map((b) => `<button data-img="${b}" aria-label="Show photo"><img src="${img(b)}" alt="" /></button>`).join('') : '';
+  $('[data-pdp-thumbs]').innerHTML = p.images.length > 1 ? p.images.map((b) => `<button data-img="${esc(b)}" aria-label="Show photo"><img src="${img(b)}" alt="" /></button>`).join('') : '';
   $('[data-pdp-thumbs]').addEventListener('click', (e) => { const b = e.target.closest('[data-img]'); if (b) show(b.dataset.img); });
   show(p.images[0]);
   const zoom = $('[data-zoom]');
@@ -83,7 +83,7 @@ boot('product', async ({ products, gsap }) => {
     $('[data-pdp-desc]').textContent = b.dataset.plang === 'bn' ? p.desc_bn : p.desc;
     $$('[data-plang]').forEach((x) => x.classList.toggle('is-active', x === b));
   });
-  $('[data-pdp-swatch]').style.background = p.hex;
+  $('[data-pdp-swatch]').style.background = safeHex(p.hex);
   $('[data-pdp-colour]').textContent = p.color;
   $('[data-pdp-fabric]').textContent = p.fabric;
   $('[data-pdp-type]').textContent = `${catName} · ${p.type}`;

@@ -1,5 +1,8 @@
 import { CONFIG } from './config.js';
 
+// Refuse to run inside another site's frame (clickjacking).
+if (window.top !== window.self) { document.body.innerHTML = ''; throw new Error('framed'); }
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
