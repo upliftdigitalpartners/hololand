@@ -41,7 +41,7 @@ function header(page) {
       <button class="menu-btn" data-menu aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
     </div>
   </header>
-  <div class="mobile-menu" data-mobile-menu>
+  <div class="mobile-menu" data-mobile-menu data-lenis-prevent>
     <nav class="mobile-menu__links">
       ${NAV.map((n, i) => `<a href="${n.href}" class="${n.key === active ? 'is-active' : ''}"><small>0${i + 1}</small>${n.label}</a>`).join('')}
     </nav>
@@ -85,7 +85,7 @@ const OVERLAYS = `
 
   <div class="modal" data-modal aria-hidden="true">
     <div class="modal__scrim" data-close-modal></div>
-    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="qv-title" data-sizer-root>
+    <div class="modal__panel" data-lenis-prevent role="dialog" aria-modal="true" aria-labelledby="qv-title" data-sizer-root>
       <button class="icon-btn modal__close" data-close-modal aria-label="Close">✕</button>
       <div class="qv__media">
         <div class="qv__main arch"><img data-qv-img alt="" /></div>
@@ -108,7 +108,7 @@ const OVERLAYS = `
 
   <aside class="drawer" data-drawer aria-hidden="true">
     <div class="drawer__scrim" data-close-bag></div>
-    <div class="drawer__panel" role="dialog" aria-labelledby="drawer-title">
+    <div class="drawer__panel" data-lenis-prevent role="dialog" aria-labelledby="drawer-title">
       <div class="drawer__head">
         <button class="icon-btn drawer__back" data-checkout-back aria-label="Back to bag" hidden>←</button>
         <h3 id="drawer-title" data-drawer-title>Your bag</h3>
@@ -172,7 +172,8 @@ const OVERLAYS = `
           <div class="done__items" data-done-items></div>
         </div>
         <div class="drawer__foot">
-          <a class="btn btn--ghost btn--wide" data-done-wa target="_blank" rel="noopener"><span>Send it to us on WhatsApp too</span></a>
+          <p class="done__wa-hint">Send us your order on WhatsApp so we can confirm it faster.</p>
+          <a class="btn btn--solid btn--wide" data-done-wa target="_blank" rel="noopener"><span>Send order on WhatsApp</span></a>
           <button class="link-btn drawer__alt" data-close-bag>Continue shopping</button>
         </div>
       </div>
