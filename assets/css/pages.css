@@ -252,3 +252,7 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
 /* Footer extras */
 .footer__about a { color: var(--cream-2); }
 .footer__about a:hover { color: var(--orange-2); }
+
+/* Footer call to action (replaces the old newsletter box) */
+.footer__lede { color: var(--cream-2); max-width: 440px; margin: -12px 0 26px; font-size: 16px; }
+.footer__cta { display: flex; flex-wrap: wrap; gap: 12px; }

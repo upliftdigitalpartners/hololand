@@ -58,12 +58,12 @@ function footer() {
     <canvas class="footer__gl" data-logo-canvas aria-hidden="true"></canvas>
     <div class="footer__top">
       <div>
-        <h2 class="footer__big">Stay <em>in the loop.</em></h2>
-        <form class="newsletter" data-newsletter>
-          <input type="email" required placeholder="your@email.com" aria-label="Email" />
-          <button class="btn btn--solid" data-magnetic><span>Subscribe</span></button>
-        </form>
-        <p class="footer__note" data-newsletter-note></p>
+        <h2 class="footer__big">Come say <em>hello.</em></h2>
+        <p class="footer__lede">Questions, orders or a photo of what you’re looking for: message our team, or follow us for new arrivals.</p>
+        <div class="footer__cta">
+          <a href="#" data-whatsapp class="btn btn--solid" data-magnetic><span>WhatsApp us</span></a>
+          <a data-social="instagram" target="_blank" rel="noopener" class="btn btn--ghost" data-magnetic><span>Follow on Instagram</span></a>
+        </div>
       </div>
     </div>
     <div class="footer__cols">
