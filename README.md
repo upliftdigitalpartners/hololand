@@ -14,7 +14,7 @@ A static site for Hololand (men's panjabi and women's knitwear, Bangladesh). It 
 | AI studio: stylist chat + support bot (English / বাংলা, voice), photo colour match, gift finder with card message | Groq via a free Cloudflare Worker; every feature has an offline fallback |
 | Size advisor in every product's quick view | Size chart + Groq |
 | Reviews with AI summaries, FAQ section (with Google FAQ markup), floating "Ask Hololand" button | Vanilla JS |
-| Owner tools (`admin.html`): product copy generator (EN/BN, SEO, Facebook, Instagram) and review summarizer | Groq, protected by an admin token |
+| Admin (`admin.html`, hidden link on the footer ©): password login; edit prices, products and photos, site texts, announcement bar, store info, FAQ and reviews; AI copywriting; one-click **Publish** commits to this repo | Cloudflare Worker + GitHub API |
 | Live Chittagong weather in the nav and the stylist | Open-Meteo (free, no key) |
 
 All libraries are vendored in `assets/vendor/` (no CDN dependency). Fonts come from Google Fonts.
@@ -37,6 +37,9 @@ python3 -m http.server 8000
 The site will be at `https://<org>.github.io/hololand/`.
 
 ## Edit the content
+
+**Easiest: use the admin** (see SETUP-GROQ.md, Step 6). Or edit the files directly:
+
 
 - **Products / prices / descriptions:** `assets/data/products.json`. All prices, names and copy are **placeholders**; replace them with real ones.
 - **WhatsApp number, socials, delivery text, city:** `assets/js/config.js`

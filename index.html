@@ -25,6 +25,7 @@
   </script>
 </head>
 <body class="is-loading">
+  <div class="announce" data-announce hidden><span data-announce-text></span></div>
   <!-- Reusable brand mark -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="mark" viewBox="0 0 345 400">
@@ -88,12 +89,12 @@
       <canvas class="hero__gl" data-hero-canvas></canvas>
       <img class="hero__fallback" src="assets/img/mp-223-lg.webp" alt="" />
       <div class="hero__content">
-        <p class="eyebrow" data-hero-reveal><span class="dot"></span> Autumn / Winter ’26 — Chittagong</p>
+        <p class="eyebrow" data-hero-reveal><span class="dot"></span> <span data-content="hero.eyebrow">Autumn / Winter ’26 — Chittagong</span></p>
         <h1 class="hero__title" data-hero-title>
-          <span class="line">Heritage,</span>
-          <span class="line"><em>re-tailored.</em></span>
+          <span class="line" data-content="hero.line1">Heritage,</span>
+          <span class="line"><em data-content="hero.line2">re-tailored.</em></span>
         </h1>
-        <p class="hero__sub" data-hero-reveal>Festive panjabis and soft winter knits, designed in Bangladesh for how we live now.</p>
+        <p class="hero__sub" data-hero-reveal data-content="hero.sub">Festive panjabis and soft winter knits, designed in Bangladesh for how we live now.</p>
         <div class="hero__cta" data-hero-reveal>
           <a href="#shop" class="btn btn--solid" data-magnetic><span>Shop the collection</span></a>
           <a href="#stylist" class="btn btn--ghost" data-magnetic><span>Ask the AI stylist</span> <b class="spark">✦</b></a>
@@ -127,18 +128,18 @@
         <a href="#shop" class="coll-card" data-filter-link="men" data-cursor="Explore">
           <div class="coll-card__media arch"><img src="assets/img/mp-187-lg.webp" alt="Man wearing a bottle-green embroidered panjabi" loading="lazy" data-parallax /></div>
           <div class="coll-card__body">
-            <span class="mono">20 styles</span>
+            <span class="mono"><span data-count-cat="men">20</span> styles</span>
             <h3>Men’s <em>Panjabi</em></h3>
-            <p>Banded collars, woven yokes and quiet embroidery. Made for Eid, weddings and every Jummah in between.</p>
+            <p data-content="collections.men">Banded collars, woven yokes and quiet embroidery. Made for Eid, weddings and every Jummah in between.</p>
             <span class="link-arrow">Shop panjabi <i>→</i></span>
           </div>
         </a>
         <a href="#shop" class="coll-card coll-card--offset" data-filter-link="women" data-cursor="Explore">
           <div class="coll-card__media arch"><img src="assets/img/wk-rose-1-lg.webp" alt="Woman wearing a dusty rose mock-neck sweater" loading="lazy" data-parallax /></div>
           <div class="coll-card__body">
-            <span class="mono">6 styles</span>
+            <span class="mono"><span data-count-cat="women">6</span> styles</span>
             <h3>Women’s <em>Knitwear</em></h3>
-            <p>Mock-necks and crews in soft, fine-gauge knits and colours that warm up a Bangladeshi winter.</p>
+            <p data-content="collections.women">Mock-necks and crews in soft, fine-gauge knits and colours that warm up a Bangladeshi winter.</p>
             <span class="link-arrow">Shop knitwear <i>→</i></span>
           </div>
         </a>
@@ -261,13 +262,13 @@
     <!-- STORY -->
     <section class="story" id="story">
       <p class="eyebrow" data-reveal>05 — Our story</p>
-      <p class="story__text" data-words>
+      <p class="story__text" data-words data-content="story.text">
         Hololand began with a simple idea: the clothes we wear to celebrate should feel as good as they look. We take the panjabi our fathers wore and the knits our mothers layered, and tailor them for a new Bangladesh, confident, colourful and entirely our own.
       </p>
       <div class="stats">
-        <div class="stat" data-reveal><strong><span data-counter="26">0</span>+</strong><span>Styles this season</span></div>
-        <div class="stat" data-reveal><strong><span data-counter="64">0</span></strong><span>Districts we deliver to</span></div>
-        <div class="stat" data-reveal><strong><span data-counter="100">0</span>%</strong><span>Designed in Chittagong</span></div>
+        <div class="stat" data-reveal><strong><span data-counter="26" data-count-cat="all-counter">0</span>+</strong><span data-content="story.stat1">Styles this season</span></div>
+        <div class="stat" data-reveal><strong><span data-counter="64" data-content-counter="story.stat2Number">0</span></strong><span data-content="story.stat2">Districts we deliver to</span></div>
+        <div class="stat" data-reveal><strong><span data-counter="100" data-content-counter="story.stat3Number">0</span>%</strong><span data-content="story.stat3">Designed in Chittagong</span></div>
       </div>
       <div class="story__strip" aria-hidden="true">
         <img src="assets/img/mp-206-sm.webp" alt="" loading="lazy" />
@@ -306,10 +307,11 @@
     <div class="footer__cols">
       <div><h4>Shop</h4><a href="#shop" data-filter-link="men">Panjabi</a><a href="#shop" data-filter-link="women">Knitwear</a><a href="#lookbook">Lookbook</a></div>
       <div><h4>Help</h4><a href="#faq">FAQ</a><a href="#stylist">AI Stylist</a><a href="#" data-whatsapp>WhatsApp us</a><span data-delivery-note></span></div>
+      <div data-store-col hidden><h4>Visit us</h4><span data-store-address></span><span data-store-hours></span><a data-store-map target="_blank" rel="noopener" hidden>Open in Google Maps ↗</a></div>
       <div><h4>Follow</h4><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
     </div>
     <div class="footer__bottom">
-      <span>© <span data-year></span> Hololand · Made in Bangladesh</span>
+      <span><a href="admin.html" class="admin-link" aria-label="Admin" rel="nofollow">©</a> <span data-year></span> Hololand · Made in Bangladesh</span>
       <span class="mono">Move your cursor over the mark ↑</span>
     </div>
   </footer>

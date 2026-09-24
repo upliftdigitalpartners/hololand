@@ -1,0 +1,32 @@
+{
+  "_note": "Edited from admin.html. 'texts' fill elements marked data-content in index.html; 'settings' override assets/js/config.js.",
+  "settings": {
+    "announcement": "",
+    "whatsappNumber": "8801000000000",
+    "deliveryNote": "Cash on delivery & bKash · Delivery across all 64 districts",
+    "store": {
+      "address": "Chittagong, Bangladesh",
+      "hours": "",
+      "mapUrl": ""
+    },
+    "socials": {
+      "facebook": "https://facebook.com/",
+      "instagram": "https://instagram.com/",
+      "tiktok": "https://tiktok.com/"
+    }
+  },
+  "texts": {
+    "hero.eyebrow": "Autumn / Winter ’26 — Chittagong",
+    "hero.line1": "Heritage,",
+    "hero.line2": "re-tailored.",
+    "hero.sub": "Festive panjabis and soft winter knits, designed in Bangladesh for how we live now.",
+    "collections.men": "Banded collars, woven yokes and quiet embroidery. Made for Eid, weddings and every Jummah in between.",
+    "collections.women": "Mock-necks and crews in soft, fine-gauge knits and colours that warm up a Bangladeshi winter.",
+    "story.text": "Hololand began with a simple idea: the clothes we wear to celebrate should feel as good as they look. We take the panjabi our fathers wore and the knits our mothers layered, and tailor them for a new Bangladesh, confident, colourful and entirely our own.",
+    "story.stat1": "Styles this season",
+    "story.stat2Number": "64",
+    "story.stat2": "Districts we deliver to",
+    "story.stat3Number": "100",
+    "story.stat3": "Designed in Chittagong"
+  }
+}

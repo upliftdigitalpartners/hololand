@@ -69,14 +69,40 @@ Open the site and scroll to **AI Stylist**. The badge says **● Live · Groq**.
 - **Gift finder:** answer 4 taps; it writes a card in English + বাংলা.
 - **Find my size:** open any product → "Find my size ✦".
 
-## Step 6: Owner tools (product copy + review summaries)
+## Step 6: Admin login (edit prices, products, texts)
 
-Open **https://upliftdigitalpartners.github.io/hololand/admin.html** (not linked from the site, and hidden from Google).
+The admin page lets you change prices, descriptions and site texts, add products with photos, hide sold-out items and edit the FAQ, all without touching code. Clicking **Publish** saves your changes to GitHub, and the site updates about a minute later.
 
-1. Paste your Worker address and your `ADMIN_TOKEN` → **Test connection**. You should see "Connected ✓".
-2. **Product copy:** pick a product (or *All products*) → **Generate**. You get English + Bangla descriptions, an SEO title and description, a Facebook post, and an Instagram caption with hashtags. Use the *Copy* buttons for social media.
-   To use the new descriptions on the site: **Download products.json** → in GitHub open `assets/data/` → **Add file → Upload files** → drop it in → **Commit**.
-3. **Review summaries:** pick a product and paste real reviews, one per line (`Name | 5 | text`), then click **Add & summarise**. Repeat for other products, then **Download reviews.json** and upload it to `assets/data/` the same way. Stars and "What customers say" appear on those products.
+**Where it is:** click the small **©** at the bottom of the website, or go to **https://upliftdigitalpartners.github.io/hololand/admin.html**. It isn't linked anywhere else and is hidden from Google.
+
+**Password:** your `ADMIN_TOKEN` from Step 4. Change it any time in Cloudflare; everyone gets signed out.
+
+### 6a. Let the Worker save to GitHub (one time)
+
+Publish needs a GitHub token that can only edit this one repository:
+
+1. On GitHub, click your profile photo → **Settings** → **Developer settings** (bottom of the left menu) → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+2. Fill in:
+   - **Token name:** `hololand-admin`
+   - **Expiration:** 1 year (put a reminder in your calendar to renew it)
+   - **Resource owner:** `upliftdigitalpartners`
+   - **Repository access:** *Only select repositories* → **hololand**
+   - **Permissions → Repository permissions → Contents:** **Read and write** (leave everything else as is)
+3. Click **Generate token** and copy it (it starts with `github_pat_`).
+   If GitHub says the organization must approve it, an owner of `upliftdigitalpartners` approves it under the organization's **Settings → Personal access tokens → Pending requests**.
+4. In Cloudflare: **hololand → Settings → Variables and Secrets** → **+ Add** → **Type: Secret**, **Name:** `GITHUB_TOKEN`, **Value:** the token → **Deploy**.
+
+> ⚠️ Use the **Variables and Secrets** section near the **top** of Settings, **not** the one inside **Builds** further down. Build variables are invisible to the running Worker.
+
+**Check it:** open https://hololand.upliftdigitalpartners.workers.dev. It should show `"publishing": true`.
+
+### 6b. Using the admin
+
+- **Products:** change prices right in the list, untick **Shown** to hide an item, or click **Edit** for everything else: name, colour, tags, English/বাংলা descriptions, photos (upload, reorder, remove). **✦ Write with AI** fills in the descriptions and also gives you a Facebook post, an Instagram caption and SEO text to copy. **+ New product** adds one.
+- **Texts & settings:** the announcement bar (e.g. "Eid sale: 15% off"), WhatsApp number, store address, opening hours, Google Maps link, social links, and the homepage and story texts.
+- **FAQ:** the answers the chat assistant uses for delivery, payment and store questions.
+- **Reviews:** paste real customer reviews; the AI writes a summary, and stars appear on the product.
+- Nothing goes live until you click **Publish**. The button shows how many things changed.
 
 ---
 
@@ -91,6 +117,9 @@ Open **https://upliftdigitalpartners.github.io/hololand/admin.html** (not linked
 | Browser console shows `403 origin not allowed` | `SITE_URL` in `wrangler.toml` is wrong. It must be exactly `https://upliftdigitalpartners.github.io/hololand`. Using a custom domain later? Add `ALLOWED_ORIGINS = "https://yourdomain.com"` under `[vars]` in `wrangler.toml`. |
 | Photo match shows colours but no "✦ AI" note | Groq's vision model name changes over time. In Groq's console check **Models** for one marked *vision*, and set `VISION_MODEL` in `wrangler.toml` to its ID. The colour matching still works without it. |
 | "slow down" errors | Built-in limit of 30 AI requests per minute per visitor, to protect your Groq quota. |
-| Admin page says "Wrong or missing admin token" | Paste `ADMIN_TOKEN` exactly as you saved it in Cloudflare. |
+| Admin login says "Wrong password" | Type `ADMIN_TOKEN` exactly as saved in Cloudflare. After 8 wrong tries, wait 15 minutes. |
+| Publish fails with "Publishing is not set up" | Add `GITHUB_TOKEN` (Step 6a) in the top **Variables and Secrets** section, not in Builds. |
+| Publish fails with "GitHub 401/403/404" | The token expired or can't write to the repo: make a new one with **Contents: Read and write** on **hololand**. If `main` has branch protection that requires pull requests, allow the token or turn that rule off. |
+| Secrets added but the Worker says `false` | They were added under **Builds**. Add them again in the top **Variables and Secrets** section. |
 
 **Models used** (change them in `wrangler.toml`): `CHAT_MODEL` = `openai/gpt-oss-120b`, `STT_MODEL` = `whisper-large-v3`, `VISION_MODEL` = `qwen/qwen3.6-27b`.

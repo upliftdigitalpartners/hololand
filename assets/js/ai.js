@@ -24,7 +24,7 @@ export async function callAI(path, body, { headers = {}, timeout = 25000 } = {})
 
 let dataCache = {};
 export function loadData(name) {
-  dataCache[name] ||= fetch(`assets/data/${name}.json`).then((r) => r.json()).catch(() => ({}));
+  dataCache[name] ||= fetch(`assets/data/${name}.json`, { cache: 'no-cache' }).then((r) => r.json()).catch(() => ({}));
   return dataCache[name];
 }
 

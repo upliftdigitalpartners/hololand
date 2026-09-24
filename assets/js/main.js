@@ -4,6 +4,7 @@ import { initStylist } from './stylist.js';
 import { initPhotoMatch } from './photo-match.js';
 import { initGift } from './gift.js';
 import { initFaq } from './faq.js';
+import { applyContent } from './content.js';
 
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
 gsap.registerPlugin(ScrollTrigger, SplitText);
@@ -47,7 +48,7 @@ function scrollToEl(target) {
 }
 
 /* ---------------- Data ---------------- */
-const productsReq = fetch('assets/data/products.json').then((r) => r.json()).then((d) => d.products);
+const productsReq = fetch('assets/data/products.json', { cache: 'no-cache' }).then((r) => r.json()).then((d) => d.products.filter((p) => !p.hidden));
 
 /* ---------------- Weather (Open-Meteo, no key) ---------------- */
 let weather = null;
@@ -66,12 +67,14 @@ fetch(`https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.city.lat}&longit
   })
   .catch(() => { $('[data-stylist-weather]').textContent = `${CONFIG.city.name}, Bangladesh`; });
 
-/* ---------------- Static bits ---------------- */
-$$('[data-year]').forEach((e) => (e.textContent = new Date().getFullYear()));
-$$('[data-delivery-note]').forEach((e) => (e.textContent = CONFIG.deliveryNote));
-$$('[data-city]').forEach((e) => (e.textContent = CONFIG.city.name));
-$$('[data-social]').forEach((a) => (a.href = CONFIG.socials[a.dataset.social] || '#'));
-$$('[data-whatsapp]').forEach((a) => { a.href = `https://wa.me/${CONFIG.whatsappNumber}`; a.target = '_blank'; a.rel = 'noopener'; });
+/* ---------------- Static bits (after content.json is applied) ---------------- */
+function applyStatic() {
+  $$('[data-year]').forEach((e) => (e.textContent = new Date().getFullYear()));
+  $$('[data-delivery-note]').forEach((e) => (e.textContent = CONFIG.deliveryNote));
+  $$('[data-city]').forEach((e) => (e.textContent = CONFIG.city.name));
+  $$('[data-social]').forEach((a) => (a.href = CONFIG.socials[a.dataset.social] || '#'));
+  $$('[data-whatsapp]').forEach((a) => { a.href = `https://wa.me/${CONFIG.whatsappNumber}`; a.target = '_blank'; a.rel = 'noopener'; });
+}
 $('[data-newsletter]').addEventListener('submit', (e) => {
   e.preventDefault();
   $('[data-newsletter-note]').textContent = 'Thank you! You’re on the list ✦';
@@ -276,6 +279,19 @@ function setupFooter() {
   io.observe(canvas);
 }
 
+/* Shrinks the hero title until its longest line fits (texts are editable in admin). */
+function fitHeroTitle() {
+  const t = $('[data-hero-title]');
+  const lines = $$('.line', t);
+  lines.forEach((l) => (l.style.whiteSpace = 'nowrap'));
+  const max = t.clientWidth;
+  let size = parseFloat(getComputedStyle(t).fontSize);
+  while (size > 36 && lines.some((l) => l.scrollWidth > max)) {
+    size -= 4;
+    t.style.fontSize = `${size}px`;
+  }
+}
+
 /* ---------------- Loader → intro ---------------- */
 async function boot() {
   const count = $('[data-count]'), bar = $('.loader__bar i');
@@ -294,6 +310,8 @@ async function boot() {
   gsap.from('.loader__word', { letterSpacing: '1.2em', opacity: 0, duration: 1.4, ease: 'expo.out', delay: 0.3 });
 
   const products = await productsReq;
+  await applyContent(products).catch((err) => console.warn('content.json', err));
+  applyStatic();
   initShop(products, { onRender: animateGrid });
   initStylist(products, () => weather);
   initPhotoMatch(products);
@@ -311,7 +329,8 @@ async function boot() {
   count.textContent = 100;
 
   // Intro
-  const titleSplit = SplitText.create('[data-hero-title] .line', { type: 'chars', mask: 'chars' });
+  fitHeroTitle();
+  const titleSplit = SplitText.create('[data-hero-title] .line', { type: 'words,chars', mask: 'words' });
   const tl = gsap.timeline({ onComplete: () => { lenis?.start(); document.body.classList.remove('is-loading'); } });
   tl.to('.loader__mark, .loader__word, .loader__count', { y: -30, opacity: 0, duration: 0.6, ease: 'power3.in', stagger: 0.05 })
     .to('.loader', { clipPath: 'inset(0 0 100% 0)', duration: 1.1, ease: 'expo.inOut' }, '-=0.1')
