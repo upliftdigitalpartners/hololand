@@ -244,7 +244,7 @@ export async function initStylist(list, weatherGetter) {
   faqs = (await loadData('faq')).faq || [];
 
   const modeEl = $('[data-stylist-mode]');
-  if (endpoint) { modeEl.textContent = 'Live · Groq'; $('.stylist .pulse').classList.add('is-live'); }
+  if (endpoint) { modeEl.textContent = 'Online'; $('.stylist .pulse').classList.add('is-live'); }
 
   addMsg('bot', 'Assalamu alaikum! I’m the Hololand assistant ✦ Ask me for outfit ideas (who it’s for, the occasion, a budget) or about delivery, payment, sizes and exchanges.');
 
