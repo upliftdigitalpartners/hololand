@@ -52,6 +52,12 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
 
     const { pathname } = new URL(request.url);
+    if (request.method === 'GET' && /\/stock\/?$/.test(pathname)) {
+      // Sizes that are tracked and how many are left (public: the shop shows "Sold out" / "Only 2 left").
+      if (!env.ORDERS) return json({ stock: {} }, 200, cors);
+      const stock = await env.ORDERS.get(env.ORDERS.idFromName('global')).getStock();
+      return json({ stock }, 200, { ...cors, 'Cache-Control': 'public, max-age=15' });
+    }
     if (request.method === 'GET') {
       // Handy check after setup: open the Worker URL in a browser.
       return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN }, 200, cors);
@@ -76,10 +82,10 @@ export default {
     if (route === 'login') {
       try { return json(await login(request, env), 200, cors); } catch (err) { return json({ error: err.message }, err.status || 400, cors); }
     }
-    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts'].includes(route);
+    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts', 'stock-set'].includes(route);
     if (admin && !(await isAdmin(request, env))) return json({ error: 'login required' }, 401, cors);
     if (!admin && !env.GROQ_API_KEY) return json({ error: 'GROQ_API_KEY is not set' }, 500, cors);
-    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts };
+    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts, 'stock-set': setStock };
     if (!handlers[route]) return json({ error: 'not found' }, 404, cors);
     try {
       return json(await handlers[route](request, env), 200, cors);
@@ -595,7 +601,11 @@ async function placeOrder(request, env, ctx) {
     note: cleanText(b.note, 300), gift: cleanText(b.gift, 300),
     items: JSON.stringify(items), subtotal, delivery: fee, total: subtotal + fee,
   };
-  const { id, duplicate } = await stub.create(order);
+  const { id, duplicate, soldOut } = await stub.create(order);
+  if (soldOut) {
+    const what = soldOut.map((x) => `${x.name} (size ${x.size}): ${x.left ? `only ${x.left} left` : 'sold out'}`).join('; ');
+    throw Object.assign(httpError(409, `Sorry, ${what}. Please update your bag and try again.`), { soldOut });
+  }
   // Phone alert to the shop (Telegram). Runs after the reply, never delays the customer.
   if (!duplicate) ctx?.waitUntil(notifyOrder(env, stub, { ...order, id, items }).catch((err) => console.error('telegram', err)));
   return { id, subtotal, delivery: fee, total: order.total, items };
@@ -715,4 +725,20 @@ async function alerts(request, env) {
     });
   }
   return { tokenSet: true, bot: bot.username, chats: chats.map((c) => ({ id: String(c.id), name: c.name })) };
+}
+
+/* ---------------- stock ---------------- */
+async function setStock(request, env) {
+  const { product, sizes } = await request.json().catch(() => ({}));
+  if (!/^[a-z0-9][a-z0-9-]{0,60}$/.test(product || '')) throw httpError(400, 'Bad product');
+  if (!sizes || typeof sizes !== 'object' || Object.keys(sizes).length > 30) throw httpError(400, 'Bad sizes');
+  const clean = {};
+  for (const [size, v] of Object.entries(sizes)) {
+    if (!/^[\w .+/-]{1,12}$/.test(size)) throw httpError(400, `Bad size "${size}"`);
+    if (v === null || v === '') { clean[size] = null; continue; }
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 100000) throw httpError(400, `Stock for ${size} must be a whole number (0 or more)`);
+    clean[size] = n;
+  }
+  return { stock: await ordersStub(env).setStock(product, clean) };
 }

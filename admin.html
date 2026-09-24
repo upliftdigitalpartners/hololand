@@ -167,6 +167,11 @@
           <label class="f"><span>Colour swatch</span><input name="hex" type="color" /></label>
           <label class="f"><span>Fabric / details</span><input name="fabric" /></label>
         </div>
+        <div class="stockbox" data-stockbox>
+          <div class="stockbox__head"><strong>Stock per size</strong><small>Saved instantly, no Publish needed. Leave a size empty for unlimited. Orders take stock automatically; cancelling or deleting an order puts it back.</small></div>
+          <div class="stockbox__grid" data-stock-grid></div>
+          <div class="stockbox__foot"><button type="button" class="btn btn--ghost btn--sm" data-stock-save><span>Save stock</span></button><span class="status" data-stock-status></span></div>
+        </div>
         <label class="f"><span>Tags <small>(comma separated: eid, wedding, winter, office, casual, premium, pastel, bold, gift…) — the AI stylist uses these</small></span><input name="tags" /></label>
         <label class="f"><span>Description (English)</span><textarea name="desc" rows="3"></textarea></label>
         <label class="f"><span>Description (বাংলা) <small>optional</small></span><textarea name="desc_bn" rows="3" class="bn"></textarea></label>

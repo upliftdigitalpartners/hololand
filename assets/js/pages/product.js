@@ -1,5 +1,6 @@
 import { boot, $, $$, animateCards } from '../core.js';
 import { catOf, catUrl, GROUPS } from '../categories.js';
+import { soldOut } from '../stock.js';
 import { img, money, esc, safeHex, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady } from '../shop.js';
 import { sizerHTML } from '../layout.js';
 import { createSizer } from '../size.js';
@@ -101,9 +102,11 @@ boot('product', async ({ products, gsap }) => {
       $('[data-pdp-sizer]').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    addToBag(p.id, sizer.size);
-    setTimeout(openBag, 300);
+    if (addToBag(p.id, sizer.size)) setTimeout(openBag, 300);
   };
+  if (soldOut(p)) {
+    for (const b of [$('[data-pdp-add]'), $('[data-bar-add]')]) { b.disabled = true; b.querySelector('span').textContent = 'Sold out'; }
+  }
   $('[data-pdp-add]').addEventListener('click', add);
   $('[data-bar-add]').addEventListener('click', add);
   $('[data-bar-name]').textContent = p.name;

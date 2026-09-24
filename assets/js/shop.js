@@ -3,6 +3,7 @@ import { CONFIG } from './config.js';
 import { loadData } from './ai.js';
 import { createSizer } from './size.js';
 import { track } from './track.js';
+import { left, soldOut, lowNote } from './stock.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -70,17 +71,18 @@ export function renderReviews(box, p, { max = 3 } = {}) {
 /* ---------------- Cards ---------------- */
 export function cardHTML(p, i = 0) {
   const alt = p.images[1];
-  const tag = p.tags.includes('premium') ? 'Premium' : p.tags.includes('wedding') ? 'Wedding edit' : p.cat === 'women' ? 'Winter knit' : '';
+  const out = soldOut(p);
+  const tag = out ? 'Sold out' : p.tags.includes('premium') ? 'Premium' : p.tags.includes('wedding') ? 'Wedding edit' : p.cat === 'women' ? 'Winter knit' : '';
   const r = ratingOf(p.id);
   return `
-    <article class="card" data-id="${p.id}" style="--i:${i}">
+    <article class="card ${out ? 'is-soldout' : ''}" data-id="${p.id}" style="--i:${i}">
       <div class="card__frame">
         <a class="card__media arch" href="${productUrl(p.id)}" data-cursor="View" aria-label="${esc(p.name)}">
           ${tag ? `<span class="card__tag">${tag}</span>` : ''}
           <img src="${img(p.images[0])}" alt="${esc(p.name)}, ${esc(p.color.toLowerCase())} ${esc(p.type.toLowerCase())}" loading="lazy" />
           ${alt ? `<img class="alt" src="${img(alt)}" alt="" loading="lazy" />` : ''}
         </a>
-        <button class="btn card__add" data-quick="${p.id}"><span>Quick add +</span></button>
+        ${out ? '' : `<button class="btn card__add" data-quick="${p.id}"><span>Quick add +</span></button>`}
       </div>
       <a class="card__info" href="${productUrl(p.id)}">
         <div>
@@ -137,13 +139,22 @@ function closeQuickView() {
 }
 
 /* ---------------- Bag ---------------- */
+const inBag = (id, size) => bag.filter((l) => l.id === id && l.size === size).reduce((n, l) => n + l.qty, 0);
+
+/** Adds to the bag unless stock runs out. Returns true if added. */
 export function addToBag(id, size, qty = 1) {
+  const n = left(id, size);
+  if (n !== null && inBag(id, size) + qty > n) {
+    toast(n === 0 ? `Sorry, size ${size} is sold out` : `Only ${n} left in size ${size}${inBag(id, size) ? ' (already in your bag)' : ''}`);
+    return false;
+  }
   const line = bag.find((l) => l.id === id && l.size === size);
   if (line) line.qty += qty; else bag.push({ id, size, qty });
   saveBag();
   renderBag();
   toast(`${byId.get(id).name} (${size}) added to bag`);
   track('bag', { product: id });
+  return true;
 }
 
 export function setGiftNote(text) {
@@ -170,7 +181,7 @@ function renderBag() {
         <a href="${productUrl(p.id)}"><img src="${img(p.images[0])}" alt="" /></a>
         <div>
           <strong>${esc(p.name)}</strong>
-          <small>${esc(p.code)} · Size ${esc(l.size)}</small><br />
+          <small>${esc(p.code)} · Size ${esc(l.size)}</small>${lowNote(l.id, l.size) ? `<small class="line-item__low">${esc(lowNote(l.id, l.size))}</small>` : ''}<br />
           <div class="qty"><button data-qty="${i}" data-d="-1" aria-label="Decrease">−</button><span>${l.qty}</span><button data-qty="${i}" data-d="1" aria-label="Increase">+</button></div>
         </div>
         <div class="line-item__price">${money(p.price * l.qty)}<button class="line-item__remove" data-remove="${i}">Remove</button></div>
@@ -347,6 +358,8 @@ export function initStore(list) {
     const qty = e.target.closest('[data-qty]');
     if (qty) {
       const l = bag[+qty.dataset.qty];
+      const cap = left(l.id, l.size);
+      if (+qty.dataset.d > 0 && cap !== null && inBag(l.id, l.size) >= cap) { toast(`Only ${cap} left in size ${l.size}`); return; }
       l.qty += +qty.dataset.d;
       if (l.qty < 1) bag.splice(+qty.dataset.qty, 1);
       saveBag(); renderBag();
@@ -364,7 +377,7 @@ export function initStore(list) {
   $('[data-qv-add]').addEventListener('click', () => {
     if (!current) return;
     if (!qvSizer.size) { toast('Please pick a size'); qvSizer.shake(); return; }
-    addToBag(current.id, qvSizer.size);
+    if (!addToBag(current.id, qvSizer.size)) return;
     closeQuickView();
     setTimeout(openBag, 350);
   });
