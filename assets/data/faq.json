@@ -1,0 +1,69 @@
+{
+  "_note": "PLACEHOLDER POLICIES: check every answer matches how Hololand actually works before going live. 'keywords' power the offline assistant (lower-case, English/Banglish/Bangla).",
+  "faq": [
+    {
+      "id": "cod",
+      "q": "Do you offer cash on delivery?",
+      "a": "Yes. Cash on delivery is available across Bangladesh. You can also pay in advance with bKash or Nagad.",
+      "q_bn": "ক্যাশ অন ডেলিভারি আছে?",
+      "a_bn": "হ্যাঁ, সারা বাংলাদেশে ক্যাশ অন ডেলিভারি আছে। চাইলে বিকাশ বা নগদে আগেও পেমেন্ট করতে পারেন।",
+      "keywords": ["cash on delivery", "cod", "payment", "pay", "bkash", "nagad", "card", "ক্যাশ", "পেমেন্ট", "বিকাশ", "নগদ", "টাকা দিব"]
+    },
+    {
+      "id": "delivery-time",
+      "q": "How long does delivery take?",
+      "a": "Inside Dhaka: 1–2 working days. Outside Dhaka: 2–4 working days. We deliver to all 64 districts.",
+      "q_bn": "ডেলিভারি পেতে কত দিন লাগে?",
+      "a_bn": "ঢাকার ভিতরে ১–২ কর্মদিবস, ঢাকার বাইরে ২–৪ কর্মদিবস। আমরা ৬৪ জেলাতেই ডেলিভারি দিই।",
+      "keywords": ["delivery", "how long", "shipping", "days", "courier", "arrive", "outside dhaka", "ডেলিভারি", "কত দিন", "কবে পাব", "কুরিয়ার"]
+    },
+    {
+      "id": "delivery-charge",
+      "q": "What is the delivery charge?",
+      "a": "৳70 inside Dhaka and ৳130 outside Dhaka. Delivery is free on orders over ৳5,000.",
+      "q_bn": "ডেলিভারি চার্জ কত?",
+      "a_bn": "ঢাকার ভিতরে ৳৭০, ঢাকার বাইরে ৳১৩০। ৳৫,০০০-এর বেশি অর্ডারে ডেলিভারি ফ্রি।",
+      "keywords": ["delivery charge", "shipping cost", "delivery fee", "free delivery", "charge", "চার্জ", "ডেলিভারি খরচ", "ফ্রি"]
+    },
+    {
+      "id": "exchange",
+      "q": "Can I exchange or return an item?",
+      "a": "Yes. Exchanges for size or colour are accepted within 7 days if the item is unworn with tags attached. Message us on WhatsApp with your order details.",
+      "q_bn": "এক্সচেঞ্জ বা রিটার্ন করা যাবে?",
+      "a_bn": "হ্যাঁ, ট্যাগসহ না-পরা অবস্থায় ৭ দিনের মধ্যে সাইজ বা রঙ এক্সচেঞ্জ করা যাবে। অর্ডারের তথ্যসহ হোয়াটসঅ্যাপে মেসেজ দিন।",
+      "keywords": ["exchange", "return", "refund", "wrong size", "change size", "doesn't fit", "not fit", "এক্সচেঞ্জ", "রিটার্ন", "ফেরত", "বদল"]
+    },
+    {
+      "id": "order",
+      "q": "How do I place an order?",
+      "a": "Add items to your bag and tap “Order on WhatsApp”. Your order is sent to us pre-filled; just add your name, phone and address and we’ll confirm.",
+      "q_bn": "কিভাবে অর্ডার করব?",
+      "a_bn": "ব্যাগে পণ্য যোগ করে “Order on WhatsApp” চাপুন। অর্ডারের তথ্য আপনা থেকেই চলে আসবে; শুধু নাম, ফোন আর ঠিকানা লিখে পাঠান।",
+      "keywords": ["order", "how to buy", "purchase", "checkout", "whatsapp", "অর্ডার", "কিনব", "কিভাবে কিনব"]
+    },
+    {
+      "id": "sizing",
+      "q": "How do panjabi and knitwear sizes run?",
+      "a": "Panjabis come in chest sizes 38–46 and run true to size. Knitwear comes in S–XL with a relaxed fit. Tap “Find my size” on any product for a personal suggestion.",
+      "q_bn": "সাইজ কিভাবে বুঝব?",
+      "a_bn": "পাঞ্জাবি ৩৮–৪৬ চেস্ট সাইজে পাওয়া যায়, সাইজ ঠিকঠাক। সোয়েটার S–XL, একটু ঢিলেঢালা ফিট। যেকোনো পণ্যে “Find my size” চাপলে আপনার জন্য সাইজ সাজেস্ট করবে।",
+      "keywords": ["size", "sizing", "fit", "measurement", "chest", "which size", "সাইজ", "মাপ", "ফিট"]
+    },
+    {
+      "id": "care",
+      "q": "How should I wash my panjabi or sweater?",
+      "a": "Panjabis: gentle machine or hand wash in cold water, dry in shade and iron inside-out over embroidery. Knitwear: hand wash cold, dry flat and never hang wet knits.",
+      "q_bn": "কিভাবে ধুতে হবে?",
+      "a_bn": "পাঞ্জাবি ঠান্ডা পানিতে হালকা করে ধুয়ে ছায়ায় শুকান, এমব্রয়ডারির উপর উল্টো করে ইস্ত্রি করুন। সোয়েটার ঠান্ডা পানিতে হাতে ধুয়ে সমান করে বিছিয়ে শুকান।",
+      "keywords": ["wash", "care", "clean", "iron", "dry clean", "shrink", "ধোয়া", "ধুব", "ইস্ত্রি", "যত্ন"]
+    },
+    {
+      "id": "store",
+      "q": "Do you have a physical store?",
+      "a": "We’re online-first right now. Follow us on Facebook and Instagram for pop-up and showroom announcements.",
+      "q_bn": "আপনাদের কোনো দোকান আছে?",
+      "a_bn": "আপাতত আমরা অনলাইনে। পপ-আপ বা শোরুমের খবর পেতে ফেসবুক ও ইনস্টাগ্রামে ফলো করুন।",
+      "keywords": ["store", "shop address", "showroom", "outlet", "visit", "location", "দোকান", "শোরুম", "ঠিকানা"]
+    }
+  ]
+}

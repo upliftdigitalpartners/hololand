@@ -1,0 +1,5 @@
+{
+  "_note": "Real customer reviews only. Add them with admin.html (Review summarizer), which also writes the AI summary. Format: reviews[productId] = [{ name, rating (1-5), text, date }]; summaries[productId] = { summary_en, summary_bn, pros, cons, fit, rating, count }.",
+  "reviews": {},
+  "summaries": {}
+}
