@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Hololand — Panjabi & Knitwear, Made in Bangladesh</title>
+  <meta name="description" content="Hololand: modern panjabis for men and winter knitwear for women. Designed in Dhaka, delivered across Bangladesh." />
+  <meta name="theme-color" content="#0d0a09" />
+  <meta property="og:title" content="Hololand — Heritage, re-tailored" />
+  <meta property="og:description" content="Modern panjabis and winter knitwear, made in Bangladesh." />
+  <meta property="og:image" content="assets/img/og.jpg" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/png" href="assets/img/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@300;400;500;600;700&family=Hind+Siliguri:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="preload" as="image" href="assets/img/mp-223-lg.webp" />
+
+  <script type="importmap">
+    { "imports": { "three": "./assets/vendor/three.min.js" } }
+  </script>
+</head>
+<body class="is-loading">
+  <!-- Reusable brand mark -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="mark" viewBox="0 0 345 400">
+      <polygon class="m-a" points="0,0 105,0 105,140 0,212" />
+      <polygon class="m-b" points="0,245 215,98 215,300 110,300 110,400 0,400" />
+      <rect class="m-c" x="238" y="0" width="107" height="400" />
+    </symbol>
+  </svg>
+
+  <!-- Loader -->
+  <div class="loader" aria-hidden="true">
+    <svg class="loader__mark" viewBox="0 0 345 400">
+      <polygon class="m-a" points="0,0 105,0 105,140 0,212" />
+      <polygon class="m-b" points="0,245 215,98 215,300 110,300 110,400 0,400" />
+      <rect class="m-c" x="238" y="0" width="107" height="400" />
+    </svg>
+    <div class="loader__word">HOLOLAND</div>
+    <div class="loader__count"><span data-count>0</span>%</div>
+    <div class="loader__bar"><i></i></div>
+  </div>
+
+  <div class="cursor" aria-hidden="true"><div class="cursor__ring"><span class="cursor__label"></span></div><div class="cursor__dot"></div></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- Nav -->
+  <header class="nav">
+    <a href="#top" class="nav__brand" aria-label="Hololand home">
+      <svg class="brandmark"><use href="#mark" /></svg>
+      <span>Hololand</span>
+    </a>
+    <nav class="nav__links" aria-label="Primary">
+      <a href="#collections" data-magnetic>Collections</a>
+      <a href="#lookbook" data-magnetic>Lookbook</a>
+      <a href="#shop" data-magnetic>Shop</a>
+      <a href="#stylist" data-magnetic>AI Stylist</a>
+      <a href="#story" data-magnetic>Story</a>
+    </nav>
+    <div class="nav__right">
+      <span class="weather-chip" data-weather hidden></span>
+      <button class="bag-btn" data-open-bag data-magnetic aria-label="Open bag">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+        <span class="bag-btn__count" data-bag-count>0</span>
+      </button>
+      <button class="menu-btn" data-menu aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
+    </div>
+  </header>
+
+  <div class="mobile-menu" data-mobile-menu>
+    <a href="#collections">Collections</a>
+    <a href="#lookbook">Lookbook</a>
+    <a href="#shop">Shop</a>
+    <a href="#stylist">AI Stylist</a>
+    <a href="#story">Story</a>
+  </div>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero" id="hero">
+      <canvas class="hero__gl" data-hero-canvas></canvas>
+      <img class="hero__fallback" src="assets/img/mp-223-lg.webp" alt="" />
+      <div class="hero__content">
+        <p class="eyebrow" data-hero-reveal><span class="dot"></span> Autumn / Winter ’26 — Dhaka</p>
+        <h1 class="hero__title" data-hero-title>
+          <span class="line">Heritage,</span>
+          <span class="line"><em>re-tailored.</em></span>
+        </h1>
+        <p class="hero__sub" data-hero-reveal>Festive panjabis and soft winter knits, designed in Bangladesh for how we live now.</p>
+        <div class="hero__cta" data-hero-reveal>
+          <a href="#shop" class="btn btn--solid" data-magnetic><span>Shop the collection</span></a>
+          <a href="#stylist" class="btn btn--ghost" data-magnetic><span>Ask the AI stylist</span> <b class="spark">✦</b></a>
+        </div>
+      </div>
+      <div class="hero__meta" data-hero-reveal>
+        <div class="hero__slide-info">
+          <span class="mono" data-hero-index>01 / 05</span>
+          <span data-hero-caption>MP-223 — Maroon Heritage</span>
+        </div>
+        <div class="hero__progress"><i data-hero-progress></i></div>
+      </div>
+      <div class="hero__scroll" data-hero-reveal><span>Scroll</span><i></i></div>
+    </section>
+
+    <!-- MARQUEE -->
+    <section class="marquee" aria-hidden="true">
+      <div class="marquee__track" data-marquee>
+        <span>Panjabi</span><b>✦</b><span class="outline">Knitwear</span><b>✦</b><span class="bn">পাঞ্জাবি</span><b>✦</b><span>Made in Bangladesh</span><b>✦</b><span class="outline">Winter ’26</span><b>✦</b>
+        <span>Panjabi</span><b>✦</b><span class="outline">Knitwear</span><b>✦</b><span class="bn">পাঞ্জাবি</span><b>✦</b><span>Made in Bangladesh</span><b>✦</b><span class="outline">Winter ’26</span><b>✦</b>
+      </div>
+    </section>
+
+    <!-- COLLECTIONS -->
+    <section class="collections" id="collections">
+      <div class="section-head">
+        <p class="eyebrow" data-reveal>01 — Collections</p>
+        <h2 class="h2" data-split>Two stories, <em>one thread.</em></h2>
+      </div>
+      <div class="collections__grid">
+        <a href="#shop" class="coll-card" data-filter-link="men" data-cursor="Explore">
+          <div class="coll-card__media arch"><img src="assets/img/mp-187-lg.webp" alt="Man wearing a bottle-green embroidered panjabi" loading="lazy" data-parallax /></div>
+          <div class="coll-card__body">
+            <span class="mono">20 styles</span>
+            <h3>Men’s <em>Panjabi</em></h3>
+            <p>Banded collars, woven yokes and quiet embroidery. Made for Eid, weddings and every Jummah in between.</p>
+            <span class="link-arrow">Shop panjabi <i>→</i></span>
+          </div>
+        </a>
+        <a href="#shop" class="coll-card coll-card--offset" data-filter-link="women" data-cursor="Explore">
+          <div class="coll-card__media arch"><img src="assets/img/wk-rose-1-lg.webp" alt="Woman wearing a dusty rose mock-neck sweater" loading="lazy" data-parallax /></div>
+          <div class="coll-card__body">
+            <span class="mono">6 styles</span>
+            <h3>Women’s <em>Knitwear</em></h3>
+            <p>Mock-necks and crews in soft, fine-gauge knits and colours that warm up a Dhaka winter.</p>
+            <span class="link-arrow">Shop knitwear <i>→</i></span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- LOOKBOOK (three.js) -->
+    <section class="lookbook" id="lookbook">
+      <div class="lookbook__pin">
+        <canvas class="lookbook__gl" data-lookbook-canvas></canvas>
+        <div class="lookbook__head">
+          <p class="eyebrow">02 — Lookbook</p>
+          <h2 class="h2">The <em>Arch</em> Series</h2>
+        </div>
+        <div class="lookbook__caption">
+          <span class="mono" data-lb-code>MP-223</span>
+          <strong data-lb-name>Maroon Heritage</strong>
+          <span data-lb-price></span>
+        </div>
+        <p class="lookbook__hint mono">Scroll or drag to turn · click to view</p>
+      </div>
+    </section>
+
+    <!-- SHOP -->
+    <section class="shop" id="shop">
+      <div class="section-head section-head--row">
+        <div>
+          <p class="eyebrow" data-reveal>03 — Shop</p>
+          <h2 class="h2" data-split>The full <em>edit.</em></h2>
+        </div>
+        <div class="shop__controls">
+          <div class="tabs" role="tablist" data-tabs>
+            <button role="tab" class="is-active" data-filter="all">All</button>
+            <button role="tab" data-filter="men">Panjabi</button>
+            <button role="tab" data-filter="women">Knitwear</button>
+          </div>
+          <label class="select">
+            <span class="sr-only">Sort</span>
+            <select data-sort>
+              <option value="featured">Featured</option>
+              <option value="low">Price: low to high</option>
+              <option value="high">Price: high to low</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="grid" data-grid></div>
+    </section>
+
+    <!-- STYLIST -->
+    <section class="stylist" id="stylist">
+      <div class="stylist__glow" aria-hidden="true"></div>
+      <div class="stylist__intro">
+        <p class="eyebrow" data-reveal>04 — AI Stylist</p>
+        <h2 class="h2" data-split>Tell us the occasion.<br /><em>We’ll dress it.</em></h2>
+        <p class="stylist__lede" data-reveal>Ask in English or বাংলা. The stylist knows the whole collection and today’s weather in <span data-city>Dhaka</span>, and can hear you too. Tap the mic.</p>
+        <div class="stylist__badges" data-reveal>
+          <span class="badge"><i class="pulse"></i> <span data-stylist-mode>Offline matcher</span></span>
+          <span class="badge" data-stylist-weather>Checking the weather…</span>
+        </div>
+      </div>
+      <div class="chat" data-chat>
+        <div class="chat__log" data-chat-log aria-live="polite"></div>
+        <div class="chat__chips" data-chat-chips>
+          <button>Eid outfit for my husband</button>
+          <button>Wedding guest, evening</button>
+          <button>Gift for my sister under ৳2500</button>
+          <button>শীতের জন্য কিছু দেখান</button>
+        </div>
+        <form class="chat__form" data-chat-form>
+          <button type="button" class="chat__mic" data-mic aria-label="Speak" hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
+          <input type="text" data-chat-input placeholder="e.g. Something for a winter wedding in Sylhet…" autocomplete="off" maxlength="400" />
+          <button type="submit" class="chat__send" aria-label="Send">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- STORY -->
+    <section class="story" id="story">
+      <p class="eyebrow" data-reveal>05 — Our story</p>
+      <p class="story__text" data-words>
+        Hololand began with a simple idea: the clothes we wear to celebrate should feel as good as they look. We take the panjabi our fathers wore and the knits our mothers layered, and tailor them for a new Bangladesh, confident, colourful and entirely our own.
+      </p>
+      <div class="stats">
+        <div class="stat" data-reveal><strong><span data-counter="26">0</span>+</strong><span>Styles this season</span></div>
+        <div class="stat" data-reveal><strong><span data-counter="64">0</span></strong><span>Districts we deliver to</span></div>
+        <div class="stat" data-reveal><strong><span data-counter="100">0</span>%</strong><span>Designed in Dhaka</span></div>
+      </div>
+      <div class="story__strip" aria-hidden="true">
+        <img src="assets/img/mp-206-sm.webp" alt="" loading="lazy" />
+        <img src="assets/img/wk-lilac-1-sm.webp" alt="" loading="lazy" />
+        <img src="assets/img/mp-081-sm.webp" alt="" loading="lazy" />
+        <img src="assets/img/wk-cobalt-1-sm.webp" alt="" loading="lazy" />
+        <img src="assets/img/mp-225-sm.webp" alt="" loading="lazy" />
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <canvas class="footer__gl" data-logo-canvas aria-hidden="true"></canvas>
+    <div class="footer__top">
+      <div>
+        <h2 class="footer__big">Stay <em>in the loop.</em></h2>
+        <form class="newsletter" data-newsletter>
+          <input type="email" required placeholder="your@email.com" aria-label="Email" />
+          <button class="btn btn--solid" data-magnetic><span>Subscribe</span></button>
+        </form>
+        <p class="footer__note" data-newsletter-note></p>
+      </div>
+    </div>
+    <div class="footer__cols">
+      <div><h4>Shop</h4><a href="#shop" data-filter-link="men">Panjabi</a><a href="#shop" data-filter-link="women">Knitwear</a><a href="#lookbook">Lookbook</a></div>
+      <div><h4>Help</h4><a href="#stylist">AI Stylist</a><a href="#" data-whatsapp>WhatsApp us</a><span data-delivery-note></span></div>
+      <div><h4>Follow</h4><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
+    </div>
+    <div class="footer__bottom">
+      <span>© <span data-year></span> Hololand · Made in Bangladesh</span>
+      <span class="mono">Move your cursor over the mark ↑</span>
+    </div>
+  </footer>
+
+  <!-- Quick view -->
+  <div class="modal" data-modal aria-hidden="true">
+    <div class="modal__scrim" data-close-modal></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="qv-title">
+      <button class="icon-btn modal__close" data-close-modal aria-label="Close">✕</button>
+      <div class="qv__media">
+        <div class="qv__main arch"><img data-qv-img alt="" /></div>
+        <div class="qv__thumbs" data-qv-thumbs></div>
+      </div>
+      <div class="qv__info">
+        <span class="mono" data-qv-code></span>
+        <h3 id="qv-title" data-qv-name></h3>
+        <p class="qv__price" data-qv-price></p>
+        <p class="qv__desc" data-qv-desc></p>
+        <p class="qv__fabric"><span class="swatch" data-qv-swatch></span><span data-qv-fabric></span></p>
+        <div class="sizes" data-qv-sizes></div>
+        <button class="btn btn--solid btn--wide" data-qv-add><span>Add to bag</span></button>
+        <p class="qv__note" data-delivery-note></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bag drawer -->
+  <aside class="drawer" data-drawer aria-hidden="true">
+    <div class="drawer__scrim" data-close-bag></div>
+    <div class="drawer__panel" role="dialog" aria-label="Shopping bag">
+      <div class="drawer__head"><h3>Your bag</h3><button class="icon-btn" data-close-bag aria-label="Close">✕</button></div>
+      <div class="drawer__items" data-bag-items></div>
+      <div class="drawer__foot">
+        <div class="drawer__total"><span>Subtotal</span><strong data-bag-total>৳0</strong></div>
+        <button class="btn btn--solid btn--wide" data-checkout><span>Order on WhatsApp</span></button>
+        <p class="drawer__note" data-delivery-note></p>
+      </div>
+    </div>
+  </aside>
+
+  <div class="toast" data-toast></div>
+
+  <script src="assets/vendor/gsap.min.js"></script>
+  <script src="assets/vendor/ScrollTrigger.min.js"></script>
+  <script src="assets/vendor/SplitText.min.js"></script>
+  <script src="assets/vendor/lenis.min.js"></script>
+  <script type="module" src="assets/js/main.js"></script>
+</body>
+</html>

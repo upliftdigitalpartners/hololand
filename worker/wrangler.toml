@@ -1,0 +1,13 @@
+name = "hololand-stylist"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Your GitHub Pages address (comma-separate several). Leave empty only while testing.
+ALLOWED_ORIGINS = "https://upliftdigitalpartners.github.io"
+CATALOG_URL = "https://upliftdigitalpartners.github.io/hololand/assets/data/products.json"
+CHAT_MODEL = "openai/gpt-oss-120b"
+STT_MODEL = "whisper-large-v3"
+
+# The key is a secret, never put it here:
+#   npx wrangler secret put GROQ_API_KEY
