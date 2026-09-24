@@ -172,7 +172,8 @@ const OVERLAYS = `
           <div class="done__items" data-done-items></div>
         </div>
         <div class="drawer__foot">
-          <a class="btn btn--ghost btn--wide" data-done-wa target="_blank" rel="noopener"><span>Send it to us on WhatsApp too</span></a>
+          <p class="done__wa-hint">Send us your order on WhatsApp so we can confirm it faster.</p>
+          <a class="btn btn--solid btn--wide" data-done-wa target="_blank" rel="noopener"><span>Send order on WhatsApp</span></a>
           <button class="link-btn drawer__alt" data-close-bag>Continue shopping</button>
         </div>
       </div>

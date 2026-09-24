@@ -305,9 +305,32 @@ function showDone(data, body) {
   $('[data-done-id]').textContent = data.id;
   $('[data-done-text]').textContent = `We’ll call or message you on ${body.phone} to confirm${body.payment === 'bkash' ? ' and send bKash payment details' : ''}. Total ${money(data.total)}${data.delivery ? ` including ${money(data.delivery)} delivery` : ' with free delivery'}.`;
   $('[data-done-items]').innerHTML = (data.items || []).map((l) => `<span>${esc(l.name)} · ${esc(l.size)} × ${l.qty}</span><span>${money(l.price * l.qty)}</span>`).join('');
-  const text = `Assalamu alaikum Hololand! I just placed order ${data.id} on the website (${body.name}, ${money(data.total)}).`;
-  $('[data-done-wa]').href = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
+  const wa = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(orderMessage(data, body))}`;
+  $('[data-done-wa]').href = wa;
   showView('done');
+  // Open WhatsApp with the order written out; the customer just taps Send.
+  // Some phones block this after a network wait, so the button above does the same.
+  setTimeout(() => { try { window.open(wa, '_blank', 'noopener'); } catch { /* blocked */ } }, 700);
+}
+
+function orderMessage(data, body) {
+  const lines = (data.items || []).map((l) => `• ${l.code} ${l.name} (Size ${l.size}) × ${l.qty} = ${money(l.price * l.qty)}`);
+  return [
+    `Assalamu alaikum Hololand! I just placed order *${data.id}* on the website.`,
+    '',
+    ...lines,
+    '',
+    `Subtotal: ${money(data.subtotal)}`,
+    `Delivery: ${data.delivery ? money(data.delivery) : 'Free'}`,
+    `*Total: ${money(data.total)}*`,
+    `Payment: ${body.payment === 'bkash' ? 'bKash' : 'Cash on delivery'}`,
+    '',
+    `Name: ${body.name}`,
+    `Phone: ${body.phone}`,
+    `Address: ${body.address} (${body.area === 'inside' ? 'inside' : 'outside'} Chittagong)`,
+    body.note ? `Note: ${body.note}` : null,
+    body.gift ? `🎁 Gift card: "${body.gift}"` : null,
+  ].filter((x) => x !== null).join('\n');
 }
 
 function whatsappCheckout() {

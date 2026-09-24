@@ -417,6 +417,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .done__body h4 { font-family: var(--serif); font-weight: 400; font-size: 36px; margin: 0 0 12px; }
 .done__body p { margin: 0 0 6px; color: var(--cream-2); font-size: 14px; }
 .done__id { font: 700 24px/1.2 var(--sans) !important; letter-spacing: .06em; color: var(--orange-2) !important; margin-bottom: 14px !important; user-select: all; }
+.done__wa-hint { margin: 0 0 12px; text-align: center; font-size: 13px; color: var(--cream-2); }
 .done__items { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); text-align: left; font-size: 13px; color: var(--cream-2); }
 @media (max-width: 380px) { .choice { grid-template-columns: 1fr; } }
 
