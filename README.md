@@ -47,7 +47,7 @@ The site will be at `https://<org>.github.io/hololand/`.
 
 👉 **Follow [SETUP-GROQ.md](SETUP-GROQ.md)**, a click-by-click guide using only the browser (about 20 minutes, free).
 
-In short: the Groq key lives in a free Cloudflare Worker (`worker/src/index.js`), never in the site. You then paste the Worker's address into `stylistEndpoint` in `assets/js/config.js`.
+In short: the Groq key lives in a free Cloudflare Worker (`worker/src/index.js`, configured by `wrangler.toml` and auto-deployed from this repo), never in the site. The site calls it through `stylistEndpoint` in `assets/js/config.js`.
 
 ## Placeholder content to review
 

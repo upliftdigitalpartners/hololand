@@ -1,0 +1,17 @@
+# Cloudflare Worker for the Hololand AI features (code in worker/src/index.js).
+# Cloudflare builds and deploys this automatically on every push to main.
+# The name must match the Worker's name in the Cloudflare dashboard.
+name = "hololand"
+main = "worker/src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[vars]
+SITE_URL = "https://upliftdigitalpartners.github.io/hololand"
+CHAT_MODEL = "openai/gpt-oss-120b"
+VISION_MODEL = "qwen/qwen3.6-27b"
+STT_MODEL = "whisper-large-v3"
+
+# Secrets are added in the dashboard (Settings → Variables and Secrets), never here:
+#   GROQ_API_KEY  (your gsk_… key)
+#   ADMIN_TOKEN   (a password for admin.html)

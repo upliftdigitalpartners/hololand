@@ -6,10 +6,9 @@ export const CONFIG = {
   // International format, digits only, e.g. '8801712345678'.
   whatsappNumber: '8801000000000',
 
-  // URL of the Cloudflare Worker in /worker that holds your Groq key.
-  // Leave empty and the stylist runs a built-in offline matcher instead.
-  // Example: 'https://hololand-stylist.your-name.workers.dev'
-  stylistEndpoint: '',
+  // URL of the Cloudflare Worker (worker/ + wrangler.toml) that holds your Groq key.
+  // Set to '' to run every AI feature in offline mode instead.
+  stylistEndpoint: 'https://hololand.upliftdigitalpartners.workers.dev',
 
   currency: '৳',
   deliveryNote: 'Cash on delivery & bKash · Delivery across all 64 districts',
