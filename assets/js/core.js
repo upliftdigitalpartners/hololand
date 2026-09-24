@@ -157,11 +157,6 @@ function applyStatic() {
   $$('[data-city]').forEach((e) => (e.textContent = CONFIG.city.name));
   $$('[data-social]').forEach((a) => (a.href = CONFIG.socials[a.dataset.social] || '#'));
   $$('[data-whatsapp]').forEach((a) => { a.href = `https://wa.me/${CONFIG.whatsappNumber}`; a.target = '_blank'; a.rel = 'noopener'; });
-  $('[data-newsletter]').addEventListener('submit', (e) => {
-    e.preventDefault();
-    $('[data-newsletter-note]').textContent = 'Thank you! You’re on the list ✦';
-    e.target.reset();
-  });
 }
 
 /* ---------------- Scroll animations ---------------- */
