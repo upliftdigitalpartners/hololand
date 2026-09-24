@@ -4,90 +4,126 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Hololand Studio</title>
+  <title>Hololand Admin</title>
   <link rel="icon" type="image/png" href="assets/img/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/style.css" />
-  <style>
-    body { padding: 32px var(--gutter) 80px; max-width: 1200px; margin: 0 auto; }
-    h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 6vw, 80px); line-height: 1; margin: 12px 0 8px; }
-    h1 em { color: var(--orange-2); }
-    .lede { color: var(--cream-2); max-width: 640px; margin: 0 0 28px; }
-    .panel { border: 1px solid var(--line-2); border-radius: 22px; padding: 22px; background: var(--ink-2); margin-bottom: 20px; }
-    .panel h2 { font-family: var(--serif); font-weight: 400; font-size: 32px; margin: 0 0 6px; }
-    .panel > p { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 14px; }
-    label.f { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); flex: 1; min-width: 200px; }
-    .f input, .f select, .f textarea { background: var(--ink); border: 1px solid var(--line-2); border-radius: 12px; padding: 11px 14px; color: var(--cream); outline: none; font: 14px var(--sans); }
-    .f textarea { min-height: 160px; resize: vertical; line-height: 1.5; }
-    .f input:focus, .f select:focus, .f textarea:focus { border-color: var(--orange); }
-    .status { font-size: 13px; color: var(--muted); margin: 8px 0 0; min-height: 1.2em; }
-    .status.ok { color: #43d17a; } .status.err { color: #ff7a6b; }
-    .out { display: grid; gap: 12px; margin-top: 16px; }
-    .out-card { border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; grid-template-columns: 70px 1fr; gap: 16px; }
-    .out-card img { width: 70px; border-radius: 99px 99px 8px 8px; aspect-ratio: 2/3; object-fit: cover; }
-    .field { margin-bottom: 10px; }
-    .field b { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
-    .field b button { font-size: 11px; color: var(--orange-2); letter-spacing: 0; text-transform: none; }
-    .field div { white-space: pre-wrap; font-size: 14px; color: var(--cream-2); }
-    .tabs { margin-bottom: 20px; }
-    [data-tab-pane] { display: none; } [data-tab-pane].is-active { display: block; }
-    .existing { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
-    .help { font-size: 12px; color: var(--muted); }
-    code { background: var(--ink); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
-  </style>
+  <link rel="stylesheet" href="assets/css/admin.css" />
 </head>
-<body>
-  <a href="./" class="nav__brand"><svg class="brandmark" viewBox="0 0 345 400"><polygon class="m-a" points="0,0 105,0 105,140 0,212" /><polygon class="m-b" points="0,245 215,98 215,300 110,300 110,400 0,400" /><rect class="m-c" x="238" y="0" width="107" height="400" /></svg><span>Hololand</span></a>
-  <h1>Studio <em>tools</em></h1>
-  <p class="lede">Owner-only AI tools, powered by Groq through your Worker. Nothing here changes the live site by itself: download the updated JSON file, then upload it to <code>assets/data/</code> on GitHub.</p>
+<body class="adm">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="mark" viewBox="0 0 345 400">
+      <polygon class="m-a" points="0,0 105,0 105,140 0,212" />
+      <polygon class="m-b" points="0,245 215,98 215,300 110,300 110,400 0,400" />
+      <rect class="m-c" x="238" y="0" width="107" height="400" />
+    </symbol>
+  </svg>
 
-  <section class="panel">
-    <h2>Connection</h2>
-    <p>Your admin token is the <code>ADMIN_TOKEN</code> secret you set on the Worker. It stays in this browser tab only.</p>
-    <div class="row">
-      <label class="f">Worker URL <input data-url placeholder="https://hololand-ai.your-name.workers.dev" /></label>
-      <label class="f">Admin token <input data-token type="password" placeholder="••••••••" /></label>
-      <button class="btn btn--ghost btn--sm" data-test><span>Test connection</span></button>
-    </div>
-    <p class="status" data-conn-status></p>
-  </section>
+  <!-- Login -->
+  <main class="login" data-login>
+    <form class="login__card" data-login-form>
+      <svg class="login__mark"><use href="#mark" /></svg>
+      <h1>Hololand <em>admin</em></h1>
+      <p>Sign in to edit products, prices and site texts.</p>
+      <label class="f"><span>Password</span><input type="password" name="password" autocomplete="current-password" required autofocus /></label>
+      <button class="btn btn--solid btn--wide"><span>Sign in</span></button>
+      <p class="status" data-login-status></p>
+    </form>
+  </main>
 
-  <div class="tabs" role="tablist">
-    <button class="is-active" data-tab="copy">Product copy</button>
-    <button data-tab="reviews">Review summaries</button>
+  <!-- App -->
+  <div class="app" data-app hidden>
+    <header class="bar">
+      <a href="./" class="bar__brand" target="_blank" rel="noopener"><svg class="brandmark"><use href="#mark" /></svg><span>Admin</span></a>
+      <nav class="bar__tabs" role="tablist">
+        <button class="is-active" data-tab="products">Products</button>
+        <button data-tab="texts">Texts &amp; settings</button>
+        <button data-tab="faq">FAQ</button>
+        <button data-tab="reviews">Reviews</button>
+      </nav>
+      <div class="bar__right">
+        <a class="link-btn" href="./" target="_blank" rel="noopener">View site ↗</a>
+        <button class="btn btn--solid btn--sm" data-publish disabled><span>Publish</span></button>
+        <button class="link-btn" data-logout>Log out</button>
+      </div>
+    </header>
+    <div class="notice" data-notice hidden></div>
+
+    <!-- Products -->
+    <section class="tab is-active" data-tab-pane="products">
+      <div class="toolbar">
+        <input type="search" class="inp" placeholder="Search name or code…" data-search />
+        <select class="inp" data-cat-filter><option value="">All categories</option><option value="men">Men · Panjabi</option><option value="women">Women · Knitwear</option></select>
+        <button class="btn btn--ghost btn--sm" data-new-product><span>+ New product</span></button>
+      </div>
+      <div class="plist" data-plist></div>
+    </section>
+
+    <!-- Texts & settings -->
+    <section class="tab" data-tab-pane="texts">
+      <div class="formgrid" data-texts></div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="tab" data-tab-pane="faq">
+      <p class="hint">The chat assistant answers delivery, payment and store questions <strong>only</strong> from these answers. Keywords help it match questions when the AI is offline.</p>
+      <div data-faq-list></div>
+      <button class="btn btn--ghost btn--sm" data-faq-add><span>+ Add question</span></button>
+    </section>
+
+    <!-- Reviews -->
+    <section class="tab" data-tab-pane="reviews">
+      <p class="hint">Paste <strong>real</strong> customer reviews (Facebook comments, WhatsApp…), one per line as <code>Name | 5 | review text</code>. Name and rating are optional. The AI writes an honest summary shown on the product.</p>
+      <div class="toolbar"><select class="inp" data-rev-product></select></div>
+      <p class="hint" data-rev-existing></p>
+      <textarea class="inp" rows="6" data-rev-text placeholder="Rahim | 5 | Fabric is soft and the colour is exactly like the photo.&#10;Nusrat | 4 | Loved it, but size runs a little large."></textarea>
+      <div class="toolbar">
+        <button class="btn btn--solid btn--sm" data-rev-go><span>✦ Add &amp; summarise</span></button>
+        <button class="btn btn--ghost btn--sm" data-rev-clear><span>Remove all reviews for this product</span></button>
+      </div>
+      <p class="status" data-rev-status></p>
+      <div data-rev-out></div>
+    </section>
   </div>
 
-  <section class="panel" data-tab-pane="copy">
-    <h2>Product copy generator</h2>
-    <p>Writes English + Bangla descriptions, SEO title/description, a Facebook post and an Instagram caption with hashtags.</p>
-    <div class="row">
-      <label class="f">Product <select data-copy-product></select></label>
-      <label class="f">Tone <input data-copy-tone value="elegant, modern, warm" /></label>
-      <button class="btn btn--solid btn--sm" data-copy-go><span>Generate</span></button>
-      <button class="btn btn--ghost btn--sm" data-copy-download disabled><span>Download products.json</span></button>
-    </div>
-    <p class="status" data-copy-status></p>
-    <div class="out" data-copy-out></div>
-  </section>
+  <!-- Product editor -->
+  <div class="editor" data-editor hidden>
+    <div class="editor__scrim" data-close-editor></div>
+    <form class="editor__panel" data-editor-form>
+      <div class="editor__head">
+        <h2 data-editor-title>Edit product</h2>
+        <button type="button" class="icon-btn" data-close-editor aria-label="Close">✕</button>
+      </div>
+      <div class="editor__body">
+        <div class="photos" data-photos></div>
+        <label class="btn btn--ghost btn--sm upload"><span>+ Add photos</span><input type="file" accept="image/*" multiple data-photo-upload hidden /></label>
+        <p class="hint">Portrait photos (2:3) look best. They're resized automatically; the first photo is the main one.</p>
 
-  <section class="panel" data-tab-pane="reviews">
-    <h2>Review summarizer</h2>
-    <p>Paste real customer reviews (from Facebook comments, WhatsApp, etc.), one per line, as <code>Name | 5 | review text</code>. Name and rating are optional. The AI writes an honest summary shown on the product.</p>
-    <div class="row">
-      <label class="f">Product <select data-rev-product></select></label>
-    </div>
-    <p class="existing" data-rev-existing></p>
-    <label class="f"><span>New reviews</span><textarea data-rev-text placeholder="Rahim | 5 | Fabric is soft and the colour is exactly like the photo.&#10;Nusrat | 4 | Loved it, but size runs a little large."></textarea></label>
-    <div class="row" style="margin-top:14px">
-      <button class="btn btn--solid btn--sm" data-rev-go><span>Add &amp; summarise</span></button>
-      <button class="btn btn--ghost btn--sm" data-rev-download disabled><span>Download reviews.json</span></button>
-    </div>
-    <p class="status" data-rev-status></p>
-    <div class="out" data-rev-out></div>
-  </section>
+        <div class="grid2">
+          <label class="f"><span>Name</span><input name="name" required /></label>
+          <label class="f"><span>Code</span><input name="code" required placeholder="MP-230" /></label>
+          <label class="f"><span>Price (৳)</span><input name="price" type="number" min="1" step="1" required /></label>
+          <label class="f"><span>Category</span><select name="cat"><option value="men">Men · Panjabi</option><option value="women">Women · Knitwear</option></select></label>
+          <label class="f"><span>Type</span><input name="type" placeholder="Panjabi" /></label>
+          <label class="f"><span>Colour name</span><input name="color" placeholder="Maroon" /></label>
+          <label class="f"><span>Colour swatch</span><input name="hex" type="color" /></label>
+          <label class="f"><span>Fabric / details</span><input name="fabric" /></label>
+        </div>
+        <label class="f"><span>Tags <small>(comma separated: eid, wedding, winter, office, casual, premium, pastel, bold, gift…) — the AI stylist uses these</small></span><input name="tags" /></label>
+        <label class="f"><span>Description (English)</span><textarea name="desc" rows="3"></textarea></label>
+        <label class="f"><span>Description (বাংলা) <small>optional</small></span><textarea name="desc_bn" rows="3" class="bn"></textarea></label>
+        <button type="button" class="btn btn--ghost btn--sm" data-ai-copy><span>✦ Write descriptions &amp; social posts with AI</span></button>
+        <div class="social" data-social-out hidden></div>
+        <label class="check"><input type="checkbox" name="hide" /> Hide from the website (sold out / coming soon)</label>
+      </div>
+      <div class="editor__foot">
+        <button type="button" class="link-btn danger" data-delete-product>Delete product</button>
+        <button class="btn btn--solid btn--sm"><span>Done</span></button>
+      </div>
+    </form>
+  </div>
 
   <div class="toast" data-toast></div>
   <script type="module" src="assets/js/admin.js"></script>

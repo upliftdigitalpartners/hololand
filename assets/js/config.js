@@ -14,7 +14,7 @@ export const CONFIG = {
   deliveryNote: 'Cash on delivery & bKash · Delivery across all 64 districts',
 
   // Weather for the stylist + nav chip (Open-Meteo, free, no key).
-  city: { name: 'Dhaka', lat: 23.8103, lon: 90.4125 },
+  city: { name: 'Chittagong', lat: 22.3569, lon: 91.7832 },
 
   socials: {
     facebook: 'https://facebook.com/',

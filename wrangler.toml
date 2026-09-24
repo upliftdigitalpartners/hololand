@@ -11,7 +11,10 @@ SITE_URL = "https://upliftdigitalpartners.github.io/hololand"
 CHAT_MODEL = "openai/gpt-oss-120b"
 VISION_MODEL = "qwen/qwen3.6-27b"
 STT_MODEL = "whisper-large-v3"
+GITHUB_REPO = "upliftdigitalpartners/hololand"
+GITHUB_BRANCH = "main"
 
 # Secrets are added in the dashboard (Settings → Variables and Secrets), never here:
 #   GROQ_API_KEY  (your gsk_… key)
-#   ADMIN_TOKEN   (a password for admin.html)
+#   ADMIN_TOKEN   (the admin password for admin.html)
+#   GITHUB_TOKEN  (fine-grained GitHub token, Contents: read and write, for publishing admin edits)
