@@ -42,8 +42,10 @@
 
   <main id="top">
     <section class="hero" id="hero">
-      <canvas class="hero__gl" data-hero-canvas></canvas>
-      <img class="hero__fallback" src="assets/img/mp-223-lg.webp" alt="" />
+      <div class="hero__slides" data-hero-slides>
+        <a class="hero__slide is-active" href="product.html?id=mp-223"><img src="assets/img/mp-223-lg.webp" alt="" fetchpriority="high" decoding="async" /></a>
+      </div>
+      <div class="hero__shade" aria-hidden="true"></div>
       <div class="hero__content">
         <p class="eyebrow" data-hero-reveal><span class="dot"></span> <span data-content="hero.eyebrow">Autumn / Winter ’26 — Chittagong</span></p>
         <h1 class="hero__title" data-hero-title>

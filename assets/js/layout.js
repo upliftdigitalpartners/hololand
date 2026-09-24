@@ -124,7 +124,6 @@ const OVERLAYS = `
           </div>
           <div class="drawer__total"><span>Subtotal</span><strong data-bag-total>৳0</strong></div>
           <button class="btn btn--solid btn--wide" data-checkout><span>Checkout</span></button>
-          <button class="link-btn drawer__alt" data-checkout-wa>or order on WhatsApp</button>
           <p class="drawer__note" data-delivery-note></p>
         </div>
       </div>
@@ -172,9 +171,7 @@ const OVERLAYS = `
           <div class="done__items" data-done-items></div>
         </div>
         <div class="drawer__foot">
-          <p class="done__wa-hint">Send us your order on WhatsApp so we can confirm it faster.</p>
-          <a class="btn btn--solid btn--wide" data-done-wa target="_blank" rel="noopener"><span>Send order on WhatsApp</span></a>
-          <button class="link-btn drawer__alt" data-close-bag>Continue shopping</button>
+          <button class="btn btn--solid btn--wide" data-close-bag><span>Continue shopping</span></button>
         </div>
       </div>
     </div>

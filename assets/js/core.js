@@ -17,6 +17,10 @@ export const webgl = (() => {
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
 })();
 if (!webgl) document.documentElement.classList.add('no-webgl');
+// Phones, tablets and low-power machines get a lighter site: no 3D effects,
+// grain or particles, so scrolling stays smooth.
+export const lite = !finePointer || innerWidth < 900 || (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+if (lite) document.documentElement.classList.add('lite');
 
 export const productsReq = fetch('assets/data/products.json', { cache: 'no-cache' })
   .then((r) => r.json()).then((d) => d.products.filter((p) => !p.hidden));
@@ -174,7 +178,8 @@ function animations() {
   $$('[data-reveal]').forEach((el) => {
     gsap.from(el, { y: 30, opacity: 0, duration: 1.1, ease: 'expo.out', scrollTrigger: { trigger: el, start: 'top 92%' } });
   });
-  $$('[data-parallax]').forEach((im) => {
+  // Lite mode skips effects that recalculate on every scroll frame.
+  if (!lite) $$('[data-parallax]').forEach((im) => {
     gsap.fromTo(im, { yPercent: -6 }, { yPercent: 6, ease: 'none', scrollTrigger: { trigger: im.parentElement, start: 'top bottom', end: 'bottom top', scrub: true } });
   });
   $$('[data-clip]').forEach((el) => {
@@ -183,7 +188,8 @@ function animations() {
   $$('[data-words]').forEach((story) => {
     const escW = (w) => w.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     story.innerHTML = story.textContent.trim().split(/\s+/).map((w) => `<span class="w">${escW(w)}</span>`).join(' ');
-    gsap.to($$('.w', story), { opacity: 1, stagger: 0.1, ease: 'none', scrollTrigger: { trigger: story, start: 'top 80%', end: 'bottom 50%', scrub: true } });
+    if (lite) gsap.to($$('.w', story), { opacity: 1, stagger: 0.02, duration: 0.6, ease: 'power1.out', scrollTrigger: { trigger: story, start: 'top 80%' } });
+    else gsap.to($$('.w', story), { opacity: 1, stagger: 0.1, ease: 'none', scrollTrigger: { trigger: story, start: 'top 80%', end: 'bottom 50%', scrub: true } });
   });
   $$('[data-counter]').forEach((el) => {
     const o = { v: 0 };
@@ -192,7 +198,7 @@ function animations() {
 }
 
 function setupFooter() {
-  if (!webgl) return;
+  if (!webgl || lite) return;
   const canvas = $('[data-logo-canvas]');
   const io = new IntersectionObserver(async ([e]) => {
     if (!e.isIntersecting) return;

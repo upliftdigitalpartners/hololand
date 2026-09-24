@@ -6,9 +6,10 @@ A static site for Hololand (men's panjabi and women's knitwear, Bangladesh). It 
 
 | Section | Tech |
 |---|---|
-| Hero: arch-shaped WebGL window with noise-dissolve slides, silk shader background, mouse ripple, zoom-through on scroll | Three.js custom GLSL |
-| Lookbook: 3D ring of arch panels that turns with scroll/drag, bends with speed, click to open | Three.js |
-| Footer: interactive particle version of the H mark | Three.js points |
+| Hero: product photo slideshow (arch on desktop, full-screen on phones), swipe on phones, tap to shop | CSS + GSAP |
+| Lookbook: 3D ring of arch panels that turns with scroll/drag (desktop; phones get the photo grid) | Three.js |
+| Footer: interactive particle version of the H mark (desktop only) | Three.js points |
+| Lite mode: phones and low-power devices skip 3D, grain, blur and scroll-linked effects so scrolling stays smooth | `lite` flag in core.js |
 | Smooth scroll, text reveals, marquee, magnetic buttons, custom cursor | GSAP + ScrollTrigger + SplitText, Lenis |
 | Shop grid, quick view, bag (saved in the browser), **checkout via WhatsApp** | Vanilla JS |
 | AI studio: stylist chat + support bot (English / বাংলা, voice), photo colour match, gift finder with card message | Groq via a free Cloudflare Worker; every feature has an offline fallback |
