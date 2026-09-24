@@ -161,6 +161,7 @@ function renderBag() {
   badge.classList.toggle('has-items', count > 0);
   $('[data-bag-total]').textContent = money(bagTotal());
   $('[data-checkout]').disabled = !count;
+  $('[data-checkout-wa]').hidden = !count;
   $('[data-gift-note]').hidden = !giftNote;
   $('[data-gift-note-text]').textContent = giftNote;
   $('[data-bag-items]').innerHTML = count ? bag.map((l, i) => {
@@ -180,6 +181,7 @@ function renderBag() {
 
 export function openBag() {
   const d = $('[data-drawer]');
+  showView('bag');
   d.classList.add('is-open');
   d.setAttribute('aria-hidden', 'false');
   window.lenis?.stop();
@@ -191,7 +193,123 @@ function closeBag() {
   window.lenis?.start();
 }
 
+/* ---------------- Checkout ---------------- */
+const TITLES = { bag: 'Your bag', checkout: 'Checkout', done: 'Order placed' };
+function showView(name) {
+  $$('[data-drawer] [data-view]').forEach((v) => { v.hidden = v.dataset.view !== name; });
+  $('[data-drawer-title]').textContent = TITLES[name];
+  $('[data-checkout-back]').hidden = name !== 'checkout';
+}
+
+const delivery = () => ({ inside: 70, outside: 130, freeOver: 5000, ...(CONFIG.delivery || {}) });
+function deliveryFee(area, subtotal) {
+  const d = delivery();
+  if (!area) return null;
+  return d.freeOver && subtotal >= d.freeOver ? 0 : d[area];
+}
+
+const BN = '০১২৩৪৫৬৭৮৯';
+export function normalizePhone(v) {
+  let d = String(v || '').replace(/[০-৯]/g, (c) => BN.indexOf(c)).replace(/\D/g, '');
+  if (d.startsWith('88')) d = d.slice(2);
+  return /^01[3-9]\d{8}$/.test(d) ? d : null;
+}
+
+function updateSummary() {
+  const f = $('[data-checkout-form]');
+  const sub = bagTotal();
+  const fee = deliveryFee(f.elements.area.value, sub);
+  const d = delivery();
+  $('[data-fee="inside"]').textContent = sub >= d.freeOver && d.freeOver ? 'Free delivery' : `${money(d.inside)} delivery`;
+  $('[data-fee="outside"]').textContent = sub >= d.freeOver && d.freeOver ? 'Free delivery' : `${money(d.outside)} delivery`;
+  $('[data-co-subtotal]').textContent = money(sub);
+  $('[data-co-delivery]').textContent = fee == null ? 'Choose area' : fee ? money(fee) : 'Free';
+  $('[data-co-total]').textContent = money(sub + (fee || 0));
+}
+
+const REMEMBER = 'hl.customer';
 function checkout() {
+  if (!bag.length) return;
+  if (!CONFIG.stylistEndpoint) { whatsappCheckout(); return; }
+  const f = $('[data-checkout-form]');
+  try {
+    const saved = JSON.parse(localStorage.getItem(REMEMBER) || 'null');
+    if (saved) {
+      for (const k of ['name', 'phone', 'address']) if (!f.elements[k].value) f.elements[k].value = saved[k] || '';
+      if (saved.area && !f.elements.area.value) f.elements.area.value = saved.area;
+      f.elements.remember.checked = true;
+    }
+  } catch { /* ignore */ }
+  coError('');
+  updateSummary();
+  showView('checkout');
+  setTimeout(() => (f.elements.name.value ? f.elements.phone : f.elements.name).focus({ preventScroll: true }), 350);
+}
+
+function coError(msg, withWa) {
+  const el = $('[data-co-error]');
+  el.hidden = !msg;
+  el.textContent = msg;
+  if (withWa) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'link-btn'; b.textContent = 'Order on WhatsApp instead';
+    b.addEventListener('click', whatsappCheckout);
+    el.append(' ', b);
+  }
+}
+
+async function placeOrder(e) {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const v = (k) => f.elements[k].value.trim();
+  const phone = normalizePhone(v('phone'));
+  const fail = (msg, field) => { coError(msg); if (field) f.elements[field].focus?.(); };
+  if (v('name').length < 2) return fail('Please enter your name.', 'name');
+  if (!phone) return fail('Please enter a valid mobile number, like 01712345678.', 'phone');
+  if (!f.elements.area.value) return fail('Please choose your delivery area.');
+  if (v('address').length < 8) return fail('Please enter your full delivery address.', 'address');
+  coError('');
+
+  const btn = $('[data-place-order]');
+  btn.disabled = true; btn.innerHTML = '<span>Placing order…</span>';
+  const body = {
+    name: v('name'), phone, area: f.elements.area.value, address: v('address'), payment: f.elements.payment.value,
+    note: v('note'), gift: giftNote, website: f.elements.website.value,
+    items: bag.map((l) => ({ id: l.id, size: l.size, qty: l.qty })),
+  };
+  try {
+    const res = await fetch(`${CONFIG.stylistEndpoint.replace(/\/$/, '')}/order`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, credentials: 'omit', body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.id) throw Object.assign(new Error(data.error || 'We could not place your order.'), { status: res.status });
+    try {
+      if (f.elements.remember.checked) localStorage.setItem(REMEMBER, JSON.stringify({ name: body.name, phone, address: body.address, area: body.area }));
+      else localStorage.removeItem(REMEMBER);
+    } catch { /* ignore */ }
+    track('order', { value: data.total });
+    showDone(data, body);
+    bag = []; giftNote = '';
+    saveBag(); renderBag();
+    f.elements.note.value = '';
+  } catch (err) {
+    coError(err.status && err.status < 500 ? err.message : 'Sorry, something went wrong and your order was not placed.', true);
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<span>Place order</span>';
+  }
+}
+
+function showDone(data, body) {
+  $('[data-done-title]').textContent = `Thank you, ${body.name.split(' ')[0]}!`;
+  $('[data-done-id]').textContent = data.id;
+  $('[data-done-text]').textContent = `We’ll call or message you on ${body.phone} to confirm${body.payment === 'bkash' ? ' and send bKash payment details' : ''}. Total ${money(data.total)}${data.delivery ? ` including ${money(data.delivery)} delivery` : ' with free delivery'}.`;
+  $('[data-done-items]').innerHTML = (data.items || []).map((l) => `<span>${esc(l.name)} · ${esc(l.size)} × ${l.qty}</span><span>${money(l.price * l.qty)}</span>`).join('');
+  const text = `Assalamu alaikum Hololand! I just placed order ${data.id} on the website (${body.name}, ${money(data.total)}).`;
+  $('[data-done-wa]').href = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
+  showView('done');
+}
+
+function whatsappCheckout() {
   if (!bag.length) return;
   const lines = bag.map((l) => {
     const p = byId.get(l.id);
@@ -253,6 +371,11 @@ export function initStore(list) {
     setTimeout(openBag, 350);
   });
   $('[data-checkout]').addEventListener('click', checkout);
+  $('[data-checkout-wa]').addEventListener('click', whatsappCheckout);
+  $('[data-checkout-back]').addEventListener('click', () => showView('bag'));
+  $('[data-checkout-form]').addEventListener('submit', placeOrder);
+  $('[data-checkout-form]').addEventListener('change', updateSummary);
+  $('[data-checkout-form]').addEventListener('input', () => { if (!$('[data-co-error]').hidden) coError(''); });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

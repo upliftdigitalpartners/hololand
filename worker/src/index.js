@@ -31,6 +31,8 @@
 
 import { EVENT_TYPES, dayOf } from './stats.js';
 export { Stats } from './stats.js';
+import { ORDER_STATUSES } from './orders.js';
+export { Orders } from './orders.js';
 
 const GROQ = 'https://api.groq.com/openai/v1';
 const cache = { at: 0, products: [], faq: [], text: '', faqText: '', ids: new Set() };
@@ -62,15 +64,22 @@ export default {
       if (!(await limited(request, env.TRACK_LIMIT))) { try { await track(request, env); } catch (err) { console.error('track', err); } }
       return new Response(null, { status: 204, headers: cors });
     }
+    if (route === 'order') {
+      if (await limited(request, env.ORDER_LIMIT)) return json({ error: 'Too many orders from this connection. Please wait a minute, or message us on WhatsApp.' }, 429, cors);
+      try { return json(await placeOrder(request, env), 200, cors); } catch (err) {
+        console.error('order', err);
+        return json({ error: err.status ? err.message : 'We could not save your order. Please try again, or order on WhatsApp.' }, err.status || 502, cors);
+      }
+    }
     if (await limited(request, env.AI_LIMIT)) return json({ error: 'slow down' }, 429, cors);
 
     if (route === 'login') {
       try { return json(await login(request, env), 200, cors); } catch (err) { return json({ error: err.message }, err.status || 400, cors); }
     }
-    const admin = ['copy', 'summarize', 'load', 'publish', 'stats'].includes(route);
+    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete'].includes(route);
     if (admin && !(await isAdmin(request, env))) return json({ error: 'login required' }, 401, cors);
     if (!admin && !env.GROQ_API_KEY) return json({ error: 'GROQ_API_KEY is not set' }, 500, cors);
-    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats };
+    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder };
     if (!handlers[route]) return json({ error: 'not found' }, 404, cors);
     try {
       return json(await handlers[route](request, env), 200, cors);
@@ -115,11 +124,17 @@ const clip = (v, n) => String(v ?? '').slice(0, n);
 async function loadData(env) {
   if (Date.now() - cache.at < 2 * 60 * 1000 && cache.text) return cache;
   const base = (env.SITE_URL || '').replace(/\/$/, '');
-  const [p, f, c] = await Promise.all([
+  const [p, f, c, sz] = await Promise.all([
     fetch(`${base}/assets/data/products.json`, { cf: { cacheTtl: 120 } }).then((r) => r.json()),
     fetch(`${base}/assets/data/faq.json`, { cf: { cacheTtl: 120 } }).then((r) => r.json()).catch(() => ({ faq: [] })),
     fetch(`${base}/assets/data/content.json`, { cf: { cacheTtl: 120 } }).then((r) => r.json()).catch(() => ({})),
+    fetch(`${base}/assets/data/sizes.json`, { cf: { cacheTtl: 120 } }).then((r) => r.json()).catch(() => ({})),
   ]);
+  cache.byId = new Map(p.products.filter((x) => !x.hidden).map((x) => [x.id, x]));
+  cache.sizes = { men: (sz.men?.sizes || []).map((r) => String(r.size)), women: (sz.women?.sizes || []).map((r) => String(r.size)) };
+  const dl = c.settings?.delivery || {};
+  const num = (v, d) => (Number.isFinite(parseInt(v, 10)) ? Math.max(0, parseInt(v, 10)) : d);
+  cache.delivery = { inside: num(dl.inside, 70), outside: num(dl.outside, 130), freeOver: num(dl.freeOver, 5000) };
   cache.products = p.products.filter((x) => !x.hidden);
   cache.faq = f.faq || [];
   cache.ids = new Set(p.products.map((x) => x.id));
@@ -500,4 +515,85 @@ async function stats(request, env) {
   const { days } = await request.json().catch(() => ({}));
   const d = [1, 7, 30, 90].includes(+days) ? +days : 7;
   return env.STATS.get(env.STATS.idFromName('global')).report(d);
+}
+
+/* ---------------- orders ---------------- */
+const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
+const ordersStub = (env) => {
+  if (!env.ORDERS) throw httpError(503, 'Order storage is not set up yet (redeploy the Worker from the latest code).');
+  return env.ORDERS.get(env.ORDERS.idFromName('global'));
+};
+
+/** Bangladeshi mobile number → 01XXXXXXXXX, or null. */
+function normalizePhone(v) {
+  let d = String(v || '').replace(/[০-৯]/g, (c) => BN_DIGITS.indexOf(c)).replace(/\D/g, '');
+  if (d.startsWith('880')) d = d.slice(2);
+  else if (d.startsWith('88')) d = d.slice(2);
+  return /^01[3-9]\d{8}$/.test(d) ? d : null;
+}
+
+function cleanText(v, max) {
+  // eslint-disable-next-line no-control-regex
+  return String(v ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, max);
+}
+
+async function placeOrder(request, env) {
+  const stub = ordersStub(env);
+  let b;
+  try { b = JSON.parse((await request.text()).slice(0, 20_000)); } catch { throw httpError(400, 'Bad request'); }
+  if (b.website) return { id: 'HL-OK', total: 0 }; // honeypot: bots fill every field
+
+  const name = cleanText(b.name, 60);
+  const phone = normalizePhone(b.phone);
+  const address = cleanText(b.address, 300);
+  const area = b.area === 'outside' ? 'outside' : b.area === 'inside' ? 'inside' : null;
+  const payment = ['cod', 'bkash'].includes(b.payment) ? b.payment : null;
+  if (name.length < 2) throw httpError(400, 'Please enter your name.');
+  if (!phone) throw httpError(400, 'Please enter a valid Bangladeshi mobile number (01XXXXXXXXX).');
+  if (!area) throw httpError(400, 'Please choose a delivery area.');
+  if (address.length < 8) throw httpError(400, 'Please enter your full delivery address.');
+  if (!payment) throw httpError(400, 'Please choose a payment method.');
+
+  const { byId, sizes, delivery } = await loadData(env);
+  if (!Array.isArray(b.items) || !b.items.length || b.items.length > 20) throw httpError(400, 'Your bag is empty.');
+  const items = [];
+  for (const it of b.items) {
+    const p = byId.get(it?.id);
+    if (!p) throw httpError(409, 'One of the items in your bag is no longer available. Please remove it and try again.');
+    const size = String(it.size || '');
+    if (sizes[p.cat]?.length ? !sizes[p.cat].includes(size) : !/^[A-Z0-9]{1,4}$/.test(size)) throw httpError(400, `Please pick a size for ${p.name}.`);
+    const qty = Math.round(Number(it.qty));
+    if (!(qty >= 1 && qty <= 10)) throw httpError(400, 'Quantity must be between 1 and 10.');
+    items.push({ id: p.id, code: p.code, name: p.name, size, qty, price: p.price });
+  }
+  // Prices always come from the live catalogue, never from the browser.
+  const subtotal = items.reduce((s, l) => s + l.price * l.qty, 0);
+  const fee = delivery.freeOver && subtotal >= delivery.freeOver ? 0 : delivery[area];
+  const order = {
+    ts: Date.now(), name, phone, area, address, payment,
+    note: cleanText(b.note, 300), gift: cleanText(b.gift, 300),
+    items: JSON.stringify(items), subtotal, delivery: fee, total: subtotal + fee,
+  };
+  const { id } = await stub.create(order);
+  return { id, subtotal, delivery: fee, total: order.total, items };
+}
+
+async function listOrders(request, env) {
+  const { status = '', q = '', offset = 0 } = await request.json().catch(() => ({}));
+  return ordersStub(env).list({ status: String(status), q: cleanText(q, 60), limit: 50, offset: Math.max(0, Math.min(100_000, +offset || 0)) });
+}
+
+async function updateOrder(request, env) {
+  const { id, status, admin_note } = await request.json().catch(() => ({}));
+  if (!/^HL-\d{6}-\d{3,}$/.test(id || '')) throw httpError(400, 'Bad order number');
+  if (status !== undefined && !ORDER_STATUSES.includes(status)) throw httpError(400, 'Bad status');
+  const res = await ordersStub(env).update(id, { status, admin_note: admin_note === undefined ? undefined : cleanText(admin_note, 500) });
+  if (!res) throw httpError(404, 'Order not found');
+  return res;
+}
+
+async function deleteOrder(request, env) {
+  const { id } = await request.json().catch(() => ({}));
+  if (!/^HL-\d{6}-\d{3,}$/.test(id || '')) throw httpError(400, 'Bad order number');
+  return ordersStub(env).remove(id);
 }

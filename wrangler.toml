@@ -34,6 +34,11 @@ name = "TRACK_LIMIT"       # anonymous page-view stats: 60 events / minute / vis
 namespace_id = "1003"
 simple = { limit = 60, period = 60 }
 
+[[ratelimits]]
+name = "ORDER_LIMIT"       # checkout form: 8 tries / minute / visitor
+namespace_id = "1004"
+simple = { limit = 8, period = 60 }
+
 # Anonymous site stats (admin → Stats), stored in a SQLite-backed Durable Object.
 [[durable_objects.bindings]]
 name = "STATS"
@@ -42,6 +47,15 @@ class_name = "Stats"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Stats"]
+
+# Orders from the checkout form (admin → Orders).
+[[durable_objects.bindings]]
+name = "ORDERS"
+class_name = "Orders"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Orders"]
 
 # Secrets are added in the dashboard (Settings → Variables and Secrets), never here:
 #   GROQ_API_KEY  (your gsk_… key)

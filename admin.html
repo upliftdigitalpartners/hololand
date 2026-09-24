@@ -40,7 +40,8 @@
     <header class="bar">
       <a href="./" class="bar__brand" target="_blank" rel="noopener"><svg class="brandmark"><use href="#mark" /></svg><span>Admin</span></a>
       <nav class="bar__tabs" role="tablist">
-        <button class="is-active" data-tab="products">Products</button>
+        <button class="is-active" data-tab="orders">Orders <b class="tab-badge" data-new-badge hidden></b></button>
+        <button data-tab="products">Products</button>
         <button data-tab="texts">Texts &amp; settings</button>
         <button data-tab="faq">FAQ</button>
         <button data-tab="reviews">Reviews</button>
@@ -55,7 +56,23 @@
     <div class="notice" data-notice hidden></div>
 
     <!-- Products -->
-    <section class="tab is-active" data-tab-pane="products">
+    <!-- Orders -->
+    <section class="tab is-active" data-tab-pane="orders">
+      <div class="toolbar">
+        <div class="chips" data-order-filter role="group" aria-label="Filter orders"></div>
+      </div>
+      <div class="toolbar">
+        <input type="search" class="inp" placeholder="Search order no., name, phone or address…" data-order-search />
+        <button class="btn btn--ghost btn--sm" data-orders-refresh><span>Refresh</span></button>
+        <span class="stats__updated" data-orders-updated></span>
+      </div>
+      <p class="status" data-orders-status></p>
+      <div class="olist" data-olist></div>
+      <button class="btn btn--ghost btn--sm olist__more" data-orders-more hidden><span>Load older orders</span></button>
+      <p class="hint stats__privacy">Orders hold customers’ names, phone numbers and addresses. Only you can see them here. Delete an order if a customer asks you to.</p>
+    </section>
+
+    <section class="tab" data-tab-pane="products">
       <div class="toolbar">
         <input type="search" class="inp" placeholder="Search name or code…" data-search />
         <select class="inp" data-cat-filter><option value="">All categories</option><option value="men">Men · Panjabi</option><option value="women">Women · Knitwear</option></select>
@@ -111,7 +128,7 @@
         <details class="chart__table"><summary>Show as table</summary><div data-chart-table></div></details>
       </figure>
       <div class="ranks" data-ranks></div>
-      <p class="hint stats__privacy">Counted anonymously: no cookies, no names, phone numbers or IP addresses are stored, and visitors who turn on “Do not track” are skipped. A visitor is counted once per day. “WhatsApp orders” counts taps on the <strong>Order on WhatsApp</strong> button, so confirm real orders in WhatsApp. Tip: add <code>?utm_source=facebook</code> (or instagram, tiktok…) to links you post so they show up under “Where visitors come from”.</p>
+      <p class="hint stats__privacy">Counted anonymously: no cookies, no names, phone numbers or IP addresses are stored, and visitors who turn on “Do not track” are skipped. A visitor is counted once per day. “Orders” counts orders placed with the checkout form plus taps on <strong>order on WhatsApp</strong>; the Orders tab has the real order details. Tip: add <code>?utm_source=facebook</code> (or instagram, tiktok…) to links you post so they show up under “Where visitors come from”.</p>
     </section>
   </div>
 

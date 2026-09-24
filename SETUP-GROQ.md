@@ -98,6 +98,7 @@ Publish needs a GitHub token that can only edit this one repository:
 
 ### 6b. Using the admin
 
+- **Orders:** every order placed with the website's checkout form appears here, newest first, with the customer's name, phone, address, items and total (delivery included). Change the status (New → Confirmed → Shipped → Delivered, or Cancelled), tap **WhatsApp customer** to send a ready-made confirmation message, **Copy details** for the courier, and add private notes. The tab shows how many orders are **New** and checks for new ones every minute while it's open. Delivery charges are set under **Texts & settings → Delivery charges**.
 - **Products:** change prices right in the list, untick **Shown** to hide an item, or click **Edit** for everything else: name, colour, tags, English/বাংলা descriptions, photos (upload, reorder, remove). **✦ Write with AI** fills in the descriptions and also gives you a Facebook post, an Instagram caption and SEO text to copy. **+ New product** adds one.
 - **Texts & settings:** the announcement bar (e.g. "Eid sale: 15% off"), WhatsApp number, store address, opening hours, Google Maps link, social links, and the homepage and story texts.
 - **FAQ:** the answers the chat assistant uses for delivery, payment and store questions.

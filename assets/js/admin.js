@@ -100,6 +100,7 @@ async function start() {
   state.content.settings ||= {}; state.content.texts ||= {};
   resetDirty();
   renderProducts(); renderTexts(); renderFaq(); renderReviewsTab();
+  loadOrders();
 }
 
 /* ---------------- tabs ---------------- */
@@ -283,6 +284,11 @@ const TEXT_FIELDS = [
     ['settings.store.address', 'Store address'],
     ['settings.store.hours', 'Opening hours', 'e.g. Sat–Thu 11am–9pm'],
     ['settings.store.mapUrl', 'Google Maps link', 'https://maps.app.goo.gl/…'],
+  ] },
+  { group: 'Delivery charges', help: 'Used by the checkout form. Whole taka, numbers only. Set “Free delivery over” to 0 to never make delivery free.', fields: [
+    ['settings.delivery.inside', 'Inside Chittagong city (৳)', '70'],
+    ['settings.delivery.outside', 'Outside Chittagong (৳)', '130'],
+    ['settings.delivery.freeOver', 'Free delivery on orders over (৳)', '5000'],
   ] },
   { group: 'Social links', fields: [['settings.socials.facebook', 'Facebook'], ['settings.socials.instagram', 'Instagram'], ['settings.socials.tiktok', 'TikTok']] },
   { group: 'Homepage', fields: [
@@ -468,7 +474,7 @@ function renderKpis({ totals: t }) {
     ['Visitors', t.visitors, `${nf.format(t.views)} page views`],
     ['Live now', t.live, 'in the last 5 minutes', 'live'],
     ['Added to bag', t.bag, t.visitors ? `${((t.bag / t.visitors) * 100).toFixed(1)}% of visitors` : ''],
-    ['WhatsApp orders', t.orders, [conv, t.orderValue ? `${CONFIG.currency}${nf.format(t.orderValue)} in bags` : ''].filter(Boolean).join(' · ')],
+    ['Orders', t.orders, [conv, t.orderValue ? `${CONFIG.currency}${nf.format(t.orderValue)} ordered` : ''].filter(Boolean).join(' · ')],
     ['Stylist chats', t.chats, 'conversations started'],
   ];
   $('[data-kpis]').innerHTML = tiles.map(([label, n, sub, mod]) => `
@@ -519,7 +525,7 @@ function renderChart({ series, days }) {
     const d = series[+rect.dataset.i];
     tip.innerHTML = `<b>${esc(fmtDay(d.day, true))}</b>
       <span><i>Visitors</i>${nf.format(d.visitors)}</span><span><i>Page views</i>${nf.format(d.views)}</span>
-      <span><i>Added to bag</i>${nf.format(d.bag)}</span><span><i>WhatsApp orders</i>${nf.format(d.orders)}</span>`;
+      <span><i>Added to bag</i>${nf.format(d.bag)}</span><span><i>Orders</i>${nf.format(d.orders)}</span>`;
     tip.hidden = false;
     plotHover(rect);
     const pr = plot.getBoundingClientRect(), rr = rect.getBoundingClientRect(), fr = fig.getBoundingClientRect();
@@ -537,7 +543,7 @@ function renderChart({ series, days }) {
   });
   plot.onpointerleave = hide;
 
-  $('[data-chart-table]').innerHTML = `<table class="stable"><thead><tr><th>Day</th><th>Visitors</th><th>Page views</th><th>Added to bag</th><th>WhatsApp orders</th><th>Chats</th></tr></thead><tbody>
+  $('[data-chart-table]').innerHTML = `<table class="stable"><thead><tr><th>Day</th><th>Visitors</th><th>Page views</th><th>Added to bag</th><th>Orders</th><th>Chats</th></tr></thead><tbody>
     ${series.slice().reverse().map((d) => `<tr><td>${esc(fmtDay(d.day, true))}</td><td>${d.visitors}</td><td>${d.views}</td><td>${d.bag}</td><td>${d.orders}</td><td>${d.chats}</td></tr>`).join('')}</tbody></table>`;
 }
 
@@ -577,6 +583,150 @@ $$('[data-days]').forEach((b) => b.addEventListener('click', () => {
 }));
 $('[data-stats-refresh]').addEventListener('click', loadStats);
 $('[data-tab="stats"]').addEventListener('click', loadStats);
+
+/* ---------------- orders ---------------- */
+const STATUS = {
+  new: 'New', confirmed: 'Confirmed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
+};
+const ord = { status: '', q: '', list: [], counts: {}, more: false, lastNew: null, loading: false };
+const taka = (n) => `${CONFIG.currency}${nf.format(n || 0)}`;
+const ago = (ts) => {
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  if (m < 24 * 60) return `${Math.round(m / 60)} h ago`;
+  return new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+
+async function loadOrders({ append = false, quiet = false } = {}) {
+  if (ord.loading || !token) return;
+  ord.loading = true;
+  const el = $('[data-orders-status]');
+  if (!quiet) status(el, 'Loading orders…');
+  try {
+    const r = await api('/admin/orders', { status: ord.status, q: ord.q, offset: append ? ord.list.length : 0 });
+    ord.list = append ? ord.list.concat(r.orders) : r.orders;
+    ord.more = r.more;
+    ord.counts = r.counts;
+    const n = r.counts.new || 0;
+    if (ord.lastNew != null && n > ord.lastNew) toast(`🛍️ ${n - ord.lastNew} new order${n - ord.lastNew > 1 ? 's' : ''}`, 5000);
+    ord.lastNew = n;
+    const badge = $('[data-new-badge]');
+    badge.hidden = !n; badge.textContent = n;
+    document.title = n ? `(${n}) Hololand admin` : 'Hololand admin';
+    status(el, ord.list.length ? '' : ord.status || ord.q ? 'No orders match.' : 'No orders yet. They’ll appear here as soon as a customer checks out.');
+    renderOrders();
+    $('[data-orders-updated]').textContent = `Updated ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+  } catch (err) {
+    if (err.message !== 'Signed out') status(el, err.message, 'err');
+  } finally { ord.loading = false; }
+}
+
+function renderOrderFilter() {
+  const all = Object.values(ord.counts).reduce((a, b) => a + b, 0);
+  $('[data-order-filter]').innerHTML = [['', 'All', all], ...Object.entries(STATUS).map(([k, v]) => [k, v, ord.counts[k] || 0])]
+    .map(([k, label, n]) => `<button class="chip ${ord.status === k ? 'is-active' : ''}" data-ostatus="${k}">${label} <b>${n}</b></button>`).join('');
+}
+
+function renderOrders() {
+  renderOrderFilter();
+  $('[data-orders-more]').hidden = !ord.more;
+  $('[data-olist]').innerHTML = ord.list.map((o) => {
+    const wa = `88${o.phone}`;
+    const first = String(o.name || '').split(' ')[0];
+    const confirmMsg = `Assalamu alaikum ${first}! This is Hololand. We received your order ${o.id} (${taka(o.total)}). ${o.payment === 'bkash' ? 'Please send the payment by bKash to confirm. ' : ''}Can you confirm the delivery address: ${o.address}?`;
+    return `<article class="ocard is-${esc(o.status)}" data-oid="${esc(o.id)}">
+      <header class="ocard__head">
+        <div><strong class="ocard__id">${esc(o.id)}</strong><span class="ocard__time" title="${esc(new Date(o.ts).toLocaleString('en-GB'))}">${esc(ago(o.ts))}</span></div>
+        <label class="ostatus"><span class="sr-only">Status</span><i class="odot" aria-hidden="true"></i>
+          <select data-ostatus-set>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${o.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+        </label>
+      </header>
+      <div class="ocard__grid">
+        <div class="ocard__cust">
+          <b>${esc(o.name)}</b>
+          <span><a href="tel:+88${esc(o.phone)}">${esc(o.phone)}</a></span>
+          <span>${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'}</span>
+          <span class="ocard__addr">${esc(o.address)}</span>
+          <span>${o.payment === 'bkash' ? 'bKash' : 'Cash on delivery'}</span>
+          ${o.note ? `<span class="ocard__note">“${esc(o.note)}”</span>` : ''}
+          ${o.gift ? `<span class="ocard__note">🎁 Gift card: “${esc(o.gift)}”</span>` : ''}
+        </div>
+        <div class="ocard__items">
+          ${o.items.map((l) => `<span>${esc(l.code)} ${esc(l.name)} · ${esc(l.size)} × ${l.qty}</span><span>${taka(l.price * l.qty)}</span>`).join('')}
+          <span class="muted">Delivery</span><span class="muted">${o.delivery ? taka(o.delivery) : 'Free'}</span>
+          <b>Total</b><b>${taka(o.total)}</b>
+        </div>
+      </div>
+      <label class="f ocard__admin"><span>Your note (only you see this)</span><input data-onote value="${esc(o.admin_note || '')}" maxlength="500" placeholder="e.g. paid by bKash, courier tracking no." /></label>
+      <footer class="ocard__foot">
+        <a class="btn btn--solid btn--sm" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(confirmMsg)}" target="_blank" rel="noopener"><span>WhatsApp customer</span></a>
+        <a class="btn btn--ghost btn--sm" href="tel:+88${esc(o.phone)}"><span>Call</span></a>
+        <button class="link-btn" data-ocopy>Copy details</button>
+        <button class="link-btn danger" data-odelete>Delete</button>
+      </footer>
+    </article>`;
+  }).join('');
+}
+
+const findOrder = (el) => ord.list.find((o) => o.id === el.closest('[data-oid]').dataset.oid);
+
+$('[data-olist]').addEventListener('change', async (e) => {
+  const sel = e.target.closest('[data-ostatus-set]');
+  if (!sel) return;
+  const o = findOrder(sel);
+  const prev = o.status;
+  try {
+    await api('/admin/order-update', { id: o.id, status: sel.value });
+    o.status = sel.value;
+    sel.closest('.ocard').className = `ocard is-${sel.value}`;
+    loadOrders({ quiet: true }); // refresh counts and the New badge
+    toast(`${o.id} → ${STATUS[sel.value]}`);
+  } catch (err) { sel.value = prev; if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`); }
+});
+
+$('[data-olist]').addEventListener('focusout', async (e) => {
+  const inp = e.target.closest('[data-onote]');
+  if (!inp) return;
+  const o = findOrder(inp);
+  if ((o.admin_note || '') === inp.value) return;
+  try { await api('/admin/order-update', { id: o.id, admin_note: inp.value }); o.admin_note = inp.value; toast('Note saved'); } catch (err) { if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`); }
+});
+
+$('[data-olist]').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-ocopy]')) {
+    const o = findOrder(e.target);
+    const text = [`${o.id}`, o.name, o.phone, o.address, `${o.area === 'inside' ? 'Inside' : 'Outside'} Chittagong · ${o.payment === 'bkash' ? 'bKash' : 'COD'}`,
+      ...o.items.map((l) => `${l.code} ${l.name} (${l.size}) x${l.qty}`), `Total ${taka(o.total)}`, o.note && `Note: ${o.note}`].filter(Boolean).join('\n');
+    try { await navigator.clipboard.writeText(text); toast('Copied, paste it into the courier form'); } catch { toast('Could not copy'); }
+  }
+  if (e.target.closest('[data-odelete]')) {
+    const o = findOrder(e.target);
+    if (!confirm(`Delete order ${o.id} from ${o.name}? This can't be undone.`)) return;
+    try { await api('/admin/order-delete', { id: o.id }); toast('Order deleted'); loadOrders(); } catch (err) { if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`); }
+  }
+});
+
+$('[data-order-filter]').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ostatus]');
+  if (!b) return;
+  ord.status = b.dataset.ostatus;
+  loadOrders();
+});
+let orderSearchT;
+$('[data-order-search]').addEventListener('input', (e) => {
+  clearTimeout(orderSearchT);
+  orderSearchT = setTimeout(() => { ord.q = e.target.value.trim(); loadOrders(); }, 350);
+});
+$('[data-orders-refresh]').addEventListener('click', () => loadOrders());
+$('[data-orders-more]').addEventListener('click', () => loadOrders({ append: true }));
+$('[data-tab="orders"]').addEventListener('click', () => loadOrders());
+// Check for new orders every minute while the admin is open (not while typing a note).
+setInterval(() => {
+  if (document.hidden || !token || document.activeElement?.matches?.('[data-onote]')) return;
+  loadOrders({ quiet: true });
+}, 60_000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && token) loadOrders({ quiet: true }); });
 
 /* ---------------- resume session ---------------- */
 try {

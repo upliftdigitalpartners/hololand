@@ -12,6 +12,7 @@
 - **AI endpoints** accept requests only from hololandbd.com (and the github.io address), are rate-limited to 20 requests/minute per visitor, and are locked to store topics. They only return text and product IDs; they can't read or change anything.
 - **Browser protections:** a Content-Security-Policy on every page (scripts only from this site; network calls only to the Worker and Open-Meteo), escaping of all shop data, and the admin refuses to load inside another site's frame.
 - **Visitor stats** are anonymous: no cookies, and no IP addresses, names or phone numbers are stored. A visitor is a hash that changes every day, so nobody can be followed over time. "Do not track" and bots are skipped, the `/track` endpoint is rate-limited to 60 events/minute per visitor, and only the logged-in admin can read the stats.
+- **Orders** (name, phone, address) are stored in a private Durable Object on the Worker, never in the public repo. Only the logged-in admin can list, change or delete them. The Worker re-checks every order: prices and delivery charges come from the live catalogue (not the browser), sizes and quantities are validated, repeats within 10 minutes are merged, bots are caught by a hidden field, and each visitor can send at most 8 order attempts a minute.
 - **No payments on the site.** Orders go to WhatsApp, so no card or bKash details ever pass through it.
 
 ## Owner checklist (do these once)
