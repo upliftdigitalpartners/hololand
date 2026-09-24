@@ -34,7 +34,21 @@ python3 -m http.server 8000
 2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 3. The workflow in `.github/workflows/pages.yml` publishes only `index.html`, `admin.html` and `assets/`. The large originals in `/photos` are not deployed.
 
-The site will be at `https://<org>.github.io/hololand/`.
+The site is live at **https://hololandbd.com** (custom domain, see below). The old `upliftdigitalpartners.github.io/hololand` address redirects there.
+
+### Custom domain (hololandbd.com)
+
+Set in the repo under **Settings → Pages → Custom domain**, with these DNS records at the domain registrar:
+
+| Type | Name | Value |
+|---|---|---|
+| A | `@` | 185.199.108.153 |
+| A | `@` | 185.199.109.153 |
+| A | `@` | 185.199.110.153 |
+| A | `@` | 185.199.111.153 |
+| CNAME | `www` | upliftdigitalpartners.github.io |
+
+The AI Worker accepts requests from the domain via `ALLOWED_ORIGINS` in `wrangler.toml`.
 
 ## Edit the content
 
