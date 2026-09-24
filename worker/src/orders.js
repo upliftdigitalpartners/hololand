@@ -16,6 +16,7 @@ export class Orders extends DurableObject {
       admin_note TEXT, updated INTEGER)`);
     this.sql.exec('CREATE INDEX IF NOT EXISTS orders_ts ON orders(ts)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS counters (k TEXT PRIMARY KEY, n INTEGER NOT NULL)');
+    this.sql.exec('CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT)');
   }
 
   async create(o) {
@@ -64,6 +65,18 @@ export class Orders extends DurableObject {
     if (!row) return null;
     if (status !== undefined) this.sql.exec('UPDATE orders SET status = ?, updated = ? WHERE id = ?', status, now, id);
     if (admin_note !== undefined) this.sql.exec('UPDATE orders SET admin_note = ?, updated = ? WHERE id = ?', admin_note, now, id);
+    return { ok: true };
+  }
+
+  /** Small settings store (e.g. which Telegram chats get order alerts). */
+  async getKV(k) {
+    const row = this.sql.exec('SELECT v FROM kv WHERE k = ?', k).toArray()[0];
+    return row ? JSON.parse(row.v) : null;
+  }
+
+  async setKV(k, v) {
+    if (v == null) this.sql.exec('DELETE FROM kv WHERE k = ?', k);
+    else this.sql.exec('INSERT INTO kv (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v', k, JSON.stringify(v));
     return { ok: true };
   }
 

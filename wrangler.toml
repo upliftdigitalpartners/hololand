@@ -61,3 +61,4 @@ new_sqlite_classes = ["Orders"]
 #   GROQ_API_KEY  (your gsk_… key)
 #   ADMIN_TOKEN   (the admin password for admin.html)
 #   GITHUB_TOKEN  (fine-grained GitHub token, Contents: read and write, for publishing admin edits)
+#   TELEGRAM_BOT_TOKEN  (optional: from @BotFather, for new-order alerts; phones are connected in the admin)
