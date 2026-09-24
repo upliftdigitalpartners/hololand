@@ -90,7 +90,7 @@ async function finish() {
   }
   const picks = result.products.map((id) => products.find((p) => p.id === id)).filter(Boolean);
   el.innerHTML = `
-    <p class="mono">Our picks ${byAI ? '<em class="ai-tag">✦ AI</em>' : ''}</p>
+    <p class="mono">Our picks</p>
     ${result.reason ? `<p class="pane__note">${esc(result.reason)}</p>` : ''}
     <div class="recs recs--grid">${picks.length ? picks.map(recHTML).join('') : '<p class="pane__note">Nothing in that budget yet. Try a higher one.</p>'}</div>
     <div class="giftcard">

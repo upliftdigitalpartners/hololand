@@ -144,7 +144,7 @@ async function askAI() {
     const ids = (res?.products || []).filter((id) => products.some((p) => p.id === id));
     if (res?.reply) {
       recs.dataset.ai = '1';
-      note.innerHTML = `${esc(res.reply)} <em class="ai-tag">✦ AI</em>`;
+      note.textContent = res.reply;
     }
     if (ids.length) {
       const local = rank(palette, mode).filter((p) => !ids.includes(p.id));
