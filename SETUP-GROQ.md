@@ -60,7 +60,7 @@ Click **Deploy** / **Save**. The other settings (`SITE_URL`, model names) come f
 
 ## Step 5: Try it on the site
 
-Open the site and scroll to **AI Stylist**. The badge says **● Live · Groq**.
+Open the site and scroll to **AI Stylist**. The badge says **● Online** (green dot).
 
 **Try it:**
 - **Chat:** "Eid outfit for my husband under 4000", or "ডেলিভারি চার্জ কত?"

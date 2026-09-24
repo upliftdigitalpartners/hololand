@@ -135,7 +135,7 @@ function renderReviews(p) {
     <div class="reviews__head"><span class="mono">What customers say</span>${r ? `<span class="reviews__stars">${stars(r.avg)} <small>${r.avg.toFixed(1)} · ${r.count} review${r.count > 1 ? 's' : ''}</small></span>` : ''}</div>
     ${sum ? `<p class="reviews__summary">${esc(sum.summary_en || '')}</p>${sum.summary_bn ? `<p class="reviews__summary bn">${esc(sum.summary_bn)}</p>` : ''}
       <div class="reviews__chips">${(sum.pros || []).map((x) => `<span class="chip chip--pro">+ ${esc(x)}</span>`).join('')}${(sum.cons || []).map((x) => `<span class="chip chip--con">− ${esc(x)}</span>`).join('')}${sum.fit ? `<span class="chip">Fit: ${esc(sum.fit)}</span>` : ''}</div>
-      <small class="reviews__ai">✦ Summarised by AI from ${r ? r.count : 'customer'} reviews</small>` : ''}
+      <small class="reviews__ai">Summary of ${r ? r.count : 'customer'} customer reviews</small>` : ''}
     ${list.slice(0, 3).map((x) => `<blockquote><span>${stars(+x.rating || 0)}</span> “${esc(x.text)}” <cite>${esc(x.name || 'Customer')}</cite></blockquote>`).join('')}`;
 }
 

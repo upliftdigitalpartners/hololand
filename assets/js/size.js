@@ -67,6 +67,6 @@ export function initSizer(onSelect) {
       } catch (err) { console.warn('size AI failed', err); }
     }
     onSelect(result.size);
-    out.innerHTML = `<strong>We suggest ${esc(result.size)}</strong> ${esc(result.reason)}${byAI ? ' <em class="ai-tag">✦ AI</em>' : ''}`;
+    out.innerHTML = `<strong>We suggest ${esc(result.size)}</strong> ${esc(result.reason)}`;
   });
 }
