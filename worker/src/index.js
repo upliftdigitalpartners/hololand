@@ -604,6 +604,7 @@ async function placeOrder(request, env, ctx) {
     if (!(qty >= 1 && qty <= 10)) throw httpError(400, 'Quantity must be between 1 and 10.');
     items.push({ id: p.id, code: p.code, name: p.name, size, qty, price: p.price });
   }
+  if (items.reduce((n, l) => n + l.qty, 0) > 30) throw httpError(400, 'For more than 30 pieces, please message us and we’ll arrange a bulk order.');
   // Prices always come from the live catalogue, never from the browser.
   const subtotal = items.reduce((s, l) => s + l.price * l.qty, 0);
   const fee = delivery.freeOver && subtotal >= delivery.freeOver ? 0 : delivery[area];
@@ -612,7 +613,8 @@ async function placeOrder(request, env, ctx) {
     note: cleanText(b.note, 300), gift: cleanText(b.gift, 300),
     items: JSON.stringify(items), subtotal, delivery: fee, total: subtotal + fee,
   };
-  const { id, duplicate, soldOut } = await stub.create(order);
+  const { id, duplicate, soldOut, tooMany } = await stub.create(order);
+  if (tooMany) throw httpError(429, 'You already have orders waiting for confirmation. We’ll call you soon; for anything urgent, message us.');
   if (soldOut) {
     const what = soldOut.map((x) => `${x.name} (size ${x.size}): ${x.left ? `only ${x.left} left` : 'sold out'}`).join('; ');
     throw Object.assign(httpError(409, `Sorry, ${what}. Please update your bag and try again.`), { soldOut });
