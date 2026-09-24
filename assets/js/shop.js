@@ -1,14 +1,15 @@
+// Store module shared by every page: product cards, quick view, bag and WhatsApp checkout.
 import { CONFIG } from './config.js';
 import { loadData } from './ai.js';
-import { initSizer, resetSizer } from './size.js';
+import { createSizer } from './size.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const img = (base, size = 'sm') => `assets/img/${base}-${size}.webp`;
 export const money = (n) => `${CONFIG.currency}${n.toLocaleString('en-IN')}`;
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const productUrl = (id) => `product.html?id=${encodeURIComponent(id)}`;
 
-const SIZES = { men: ['38', '40', '42', '44', '46'], women: ['S', 'M', 'L', 'XL'] };
 const STORE_KEY = 'hololand.bag.v1';
 const GIFT_KEY = 'hololand.gift.v1';
 
@@ -17,9 +18,9 @@ let byId = new Map();
 let bag = [];
 let giftNote = '';
 let reviews = { reviews: {}, summaries: {} };
-let filter = 'all';
-let sort = 'featured';
-let onGridChange = () => {};
+export const reviewsReady = loadData('reviews').then((r) => { reviews = { reviews: {}, summaries: {}, ...r }; });
+
+export const getProduct = (id) => byId.get(id);
 
 function loadBag() {
   try { bag = JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { bag = []; }
@@ -33,18 +34,6 @@ function saveBag() {
   } catch { /* private mode */ }
 }
 
-/** Small product tile used by the stylist, photo match and gift finder. */
-export function recHTML(p) {
-  return `<button class="rec" data-rec="${p.id}" data-cursor="View"><img src="${img(p.images[0])}" alt="${esc(p.name)}" loading="lazy" /><div><strong>${esc(p.name)}</strong><span>${money(p.price)}</span></div></button>`;
-}
-
-const stars = (r) => '★★★★★'.slice(0, Math.round(r)) + '☆☆☆☆☆'.slice(0, 5 - Math.round(r));
-function ratingOf(id) {
-  const list = reviews.reviews?.[id] || [];
-  if (!list.length) return null;
-  return { avg: list.reduce((a, r) => a + (+r.rating || 0), 0) / list.length, count: list.length };
-}
-
 export function toast(msg) {
   const t = $('[data-toast]');
   t.textContent = msg;
@@ -53,54 +42,67 @@ export function toast(msg) {
   toast.timer = setTimeout(() => t.classList.remove('is-visible'), 2200);
 }
 
-/* ---------------- Grid ---------------- */
-function cardHTML(p, i) {
+/* ---------------- Reviews ---------------- */
+export const stars = (r) => '★★★★★'.slice(0, Math.round(r)) + '☆☆☆☆☆'.slice(0, 5 - Math.round(r));
+export function ratingOf(id) {
+  const list = reviews.reviews?.[id] || [];
+  if (!list.length) return null;
+  return { avg: list.reduce((a, r) => a + (+r.rating || 0), 0) / list.length, count: list.length };
+}
+export function renderReviews(box, p, { max = 3 } = {}) {
+  const list = reviews.reviews?.[p.id] || [];
+  const sum = reviews.summaries?.[p.id];
+  if (!list.length && !sum) { box.hidden = true; return; }
+  const r = ratingOf(p.id);
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="reviews__head"><span class="mono">What customers say</span>${r ? `<span class="reviews__stars">${stars(r.avg)} <small>${r.avg.toFixed(1)} · ${r.count} review${r.count > 1 ? 's' : ''}</small></span>` : ''}</div>
+    ${sum ? `<p class="reviews__summary">${esc(sum.summary_en || '')}</p>${sum.summary_bn ? `<p class="reviews__summary bn">${esc(sum.summary_bn)}</p>` : ''}
+      <div class="reviews__chips">${(sum.pros || []).map((x) => `<span class="chip chip--pro">+ ${esc(x)}</span>`).join('')}${(sum.cons || []).map((x) => `<span class="chip chip--con">− ${esc(x)}</span>`).join('')}${sum.fit ? `<span class="chip">Fit: ${esc(sum.fit)}</span>` : ''}</div>
+      <small class="reviews__ai">Summary of ${r ? r.count : 'customer'} customer reviews</small>` : ''}
+    ${list.slice(0, max).map((x) => `<blockquote><span>${stars(+x.rating || 0)}</span> “${esc(x.text)}” <cite>${esc(x.name || 'Customer')}</cite></blockquote>`).join('')}`;
+}
+
+/* ---------------- Cards ---------------- */
+export function cardHTML(p, i = 0) {
   const alt = p.images[1];
   const tag = p.tags.includes('premium') ? 'Premium' : p.tags.includes('wedding') ? 'Wedding edit' : p.cat === 'women' ? 'Winter knit' : '';
+  const r = ratingOf(p.id);
   return `
     <article class="card" data-id="${p.id}" style="--i:${i}">
-      <div class="card__media arch" data-quick="${p.id}" data-cursor="View">
-        ${tag ? `<span class="card__tag">${tag}</span>` : ''}
-        <img src="${img(p.images[0])}" alt="${esc(p.name)}, ${esc(p.color.toLowerCase())} ${esc(p.type.toLowerCase())}" loading="lazy" />
-        ${alt ? `<img class="alt" src="${img(alt)}" alt="" loading="lazy" />` : ''}
+      <div class="card__frame">
+        <a class="card__media arch" href="${productUrl(p.id)}" data-cursor="View" aria-label="${esc(p.name)}">
+          ${tag ? `<span class="card__tag">${tag}</span>` : ''}
+          <img src="${img(p.images[0])}" alt="${esc(p.name)}, ${esc(p.color.toLowerCase())} ${esc(p.type.toLowerCase())}" loading="lazy" />
+          ${alt ? `<img class="alt" src="${img(alt)}" alt="" loading="lazy" />` : ''}
+        </a>
         <button class="btn card__add" data-quick="${p.id}"><span>Quick add +</span></button>
       </div>
-      <div class="card__info">
+      <a class="card__info" href="${productUrl(p.id)}">
         <div>
-          <span class="mono">${p.code}</span>
+          <span class="mono">${esc(p.code)}</span>
           <h3>${esc(p.name)}</h3>
           <span class="card__color"><i class="swatch" style="background:${p.hex}"></i>${esc(p.color)}</span>
-          ${ratingOf(p.id) ? `<span class="card__rating">${stars(ratingOf(p.id).avg)} <small>(${ratingOf(p.id).count})</small></span>` : ''}
+          ${r ? `<span class="card__rating">${stars(r.avg)} <small>(${r.count})</small></span>` : ''}
         </div>
         <span class="card__price">${money(p.price)}</span>
-      </div>
+      </a>
     </article>`;
 }
 
-function renderGrid() {
-  let list = products.filter((p) => filter === 'all' || p.cat === filter);
-  if (sort === 'low') list = [...list].sort((a, b) => a.price - b.price);
-  if (sort === 'high') list = [...list].sort((a, b) => b.price - a.price);
-  const grid = $('[data-grid]');
-  grid.innerHTML = list.map(cardHTML).join('');
-  onGridChange(grid);
-}
-
-export function setFilter(f) {
-  filter = f;
-  $$('[data-tabs] button').forEach((b) => b.classList.toggle('is-active', b.dataset.filter === f));
-  renderGrid();
+/** Small product tile used by the stylist, photo match and gift finder. */
+export function recHTML(p) {
+  return `<button class="rec" data-rec="${p.id}" data-cursor="View"><img src="${img(p.images[0])}" alt="${esc(p.name)}" loading="lazy" /><div><strong>${esc(p.name)}</strong><span>${money(p.price)}</span></div></button>`;
 }
 
 /* ---------------- Quick view ---------------- */
 let current = null;
-let currentSize = null;
+let qvSizer = null;
 
 export function openQuickView(id) {
   const p = byId.get(id);
   if (!p) return;
   current = p;
-  currentSize = null;
   const m = $('[data-modal]');
   $('[data-qv-img]', m).src = img(p.images[0], 'lg');
   $('[data-qv-img]', m).alt = `${p.name}, ${p.color} ${p.type}`;
@@ -112,45 +114,15 @@ export function openQuickView(id) {
   $$('[data-lang]', m).forEach((b) => b.classList.toggle('is-active', b.dataset.lang === 'en'));
   $('[data-qv-fabric]', m).textContent = `${p.color} · ${p.fabric}`;
   $('[data-qv-swatch]', m).style.background = p.hex;
+  $('[data-qv-link]', m).href = productUrl(p.id);
   $('[data-qv-thumbs]', m).innerHTML = p.images.length > 1
     ? p.images.map((b, i) => `<button class="${i ? '' : 'is-active'}" data-thumb="${b}" aria-label="Image ${i + 1}"><img src="${img(b)}" alt="" /></button>`).join('')
     : '';
-  $('[data-qv-sizes]', m).innerHTML = SIZES[p.cat].map((s) => `<button data-size="${s}">${s}</button>`).join('');
-  resetSizer(p);
-  renderReviews(p);
+  qvSizer.setProduct(p);
   m.classList.add('is-open');
   m.setAttribute('aria-hidden', 'false');
   window.lenis?.stop();
   setTimeout(() => $('.modal__close', m).focus({ preventScroll: true }), 50);
-}
-
-function renderReviews(p) {
-  const box = $('[data-qv-reviews]');
-  const list = reviews.reviews?.[p.id] || [];
-  const sum = reviews.summaries?.[p.id];
-  if (!list.length && !sum) { box.hidden = true; return; }
-  const r = ratingOf(p.id);
-  box.hidden = false;
-  box.innerHTML = `
-    <div class="reviews__head"><span class="mono">What customers say</span>${r ? `<span class="reviews__stars">${stars(r.avg)} <small>${r.avg.toFixed(1)} · ${r.count} review${r.count > 1 ? 's' : ''}</small></span>` : ''}</div>
-    ${sum ? `<p class="reviews__summary">${esc(sum.summary_en || '')}</p>${sum.summary_bn ? `<p class="reviews__summary bn">${esc(sum.summary_bn)}</p>` : ''}
-      <div class="reviews__chips">${(sum.pros || []).map((x) => `<span class="chip chip--pro">+ ${esc(x)}</span>`).join('')}${(sum.cons || []).map((x) => `<span class="chip chip--con">− ${esc(x)}</span>`).join('')}${sum.fit ? `<span class="chip">Fit: ${esc(sum.fit)}</span>` : ''}</div>
-      <small class="reviews__ai">Summary of ${r ? r.count : 'customer'} customer reviews</small>` : ''}
-    ${list.slice(0, 3).map((x) => `<blockquote><span>${stars(+x.rating || 0)}</span> “${esc(x.text)}” <cite>${esc(x.name || 'Customer')}</cite></blockquote>`).join('')}`;
-}
-
-/** Selects a size button in the open quick view (used by the size advisor). */
-export function selectSize(size) {
-  const btn = $(`[data-qv-sizes] [data-size="${size}"]`);
-  if (!btn) return;
-  currentSize = size;
-  $$('[data-size]').forEach((b) => b.classList.toggle('is-active', b === btn));
-}
-
-export function setGiftNote(text) {
-  giftNote = (text || '').trim();
-  saveBag();
-  renderBag();
 }
 
 function closeQuickView() {
@@ -166,8 +138,13 @@ export function addToBag(id, size, qty = 1) {
   if (line) line.qty += qty; else bag.push({ id, size, qty });
   saveBag();
   renderBag();
-  const p = byId.get(id);
-  toast(`${p.name} (${size}) added to bag`);
+  toast(`${byId.get(id).name} (${size}) added to bag`);
+}
+
+export function setGiftNote(text) {
+  giftNote = (text || '').trim();
+  saveBag();
+  renderBag();
 }
 
 function bagTotal() { return bag.reduce((s, l) => s + byId.get(l.id).price * l.qty, 0); }
@@ -185,15 +162,15 @@ function renderBag() {
     const p = byId.get(l.id);
     return `
       <div class="line-item">
-        <img src="${img(p.images[0])}" alt="" />
+        <a href="${productUrl(p.id)}"><img src="${img(p.images[0])}" alt="" /></a>
         <div>
           <strong>${esc(p.name)}</strong>
-          <small>${p.code} · Size ${esc(l.size)}</small><br />
+          <small>${esc(p.code)} · Size ${esc(l.size)}</small><br />
           <div class="qty"><button data-qty="${i}" data-d="-1" aria-label="Decrease">−</button><span>${l.qty}</span><button data-qty="${i}" data-d="1" aria-label="Increase">+</button></div>
         </div>
         <div class="line-item__price">${money(p.price * l.qty)}<button class="line-item__remove" data-remove="${i}">Remove</button></div>
       </div>`;
-  }).join('') : '<p class="drawer__empty">Your bag is empty.<br />Find something you love ✦</p>';
+  }).join('') : '<p class="drawer__empty">Your bag is empty.<br /><a class="link-btn" href="shop.html">Start shopping →</a></p>';
 }
 
 export function openBag() {
@@ -220,19 +197,19 @@ function checkout() {
   window.open(`https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 
+/** WhatsApp link asking about one product. */
+export function askLink(p) {
+  const text = `Assalamu alaikum Hololand! I have a question about ${p.code} ${p.name} (${money(p.price)}): ${location.origin}${location.pathname.replace(/[^/]*$/, '')}${productUrl(p.id)}`;
+  return `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
+}
+
 /* ---------------- Init ---------------- */
-export function initShop(list, { onRender } = {}) {
+export function initStore(list) {
   products = list;
   byId = new Map(list.map((p) => [p.id, p]));
-  onGridChange = onRender || onGridChange;
   loadBag();
-  renderGrid();
   renderBag();
-  initSizer(selectSize);
-  loadData('reviews').then((r) => { reviews = { reviews: {}, summaries: {}, ...r }; if (Object.keys(reviews.reviews).length) renderGrid(); });
-
-  $$('[data-tabs] button').forEach((b) => b.addEventListener('click', () => setFilter(b.dataset.filter)));
-  $('[data-sort]').addEventListener('change', (e) => { sort = e.target.value; renderGrid(); });
+  qvSizer = createSizer($('[data-modal] [data-sizer-root]') || $('[data-modal] .modal__panel'));
 
   document.addEventListener('click', (e) => {
     const q = e.target.closest('[data-quick]');
@@ -240,16 +217,10 @@ export function initShop(list, { onRender } = {}) {
     if (e.target.closest('[data-close-modal]')) closeQuickView();
     if (e.target.closest('[data-open-bag]')) openBag();
     if (e.target.closest('[data-close-bag]')) closeBag();
-
-    const size = e.target.closest('[data-size]');
-    if (size) {
-      currentSize = size.dataset.size;
-      $$('[data-size]').forEach((b) => b.classList.toggle('is-active', b === size));
-    }
-    const thumb = e.target.closest('[data-thumb]');
+    const thumb = e.target.closest('[data-modal] [data-thumb]');
     if (thumb) {
       $('[data-qv-img]').src = img(thumb.dataset.thumb, 'lg');
-      $$('[data-thumb]').forEach((b) => b.classList.toggle('is-active', b === thumb));
+      $$('[data-modal] [data-thumb]').forEach((b) => b.classList.toggle('is-active', b === thumb));
     }
     const qty = e.target.closest('[data-qty]');
     if (qty) {
@@ -258,10 +229,10 @@ export function initShop(list, { onRender } = {}) {
       if (l.qty < 1) bag.splice(+qty.dataset.qty, 1);
       saveBag(); renderBag();
     }
-    const lang = e.target.closest('[data-lang]');
+    const lang = e.target.closest('[data-modal] [data-lang]');
     if (lang && current) {
       $('[data-qv-desc]').textContent = lang.dataset.lang === 'bn' ? current.desc_bn : current.desc;
-      $$('[data-lang]').forEach((b) => b.classList.toggle('is-active', b === lang));
+      $$('[data-modal] [data-lang]').forEach((b) => b.classList.toggle('is-active', b === lang));
     }
     if (e.target.closest('[data-gift-note-clear]')) setGiftNote('');
     const rm = e.target.closest('[data-remove]');
@@ -270,12 +241,8 @@ export function initShop(list, { onRender } = {}) {
 
   $('[data-qv-add]').addEventListener('click', () => {
     if (!current) return;
-    if (!currentSize) {
-      toast('Please pick a size');
-      $('[data-qv-sizes]').animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }], { duration: 300 });
-      return;
-    }
-    addToBag(current.id, currentSize);
+    if (!qvSizer.size) { toast('Please pick a size'); qvSizer.shake(); return; }
+    addToBag(current.id, qvSizer.size);
     closeQuickView();
     setTimeout(openBag, 350);
   });
