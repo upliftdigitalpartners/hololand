@@ -2,6 +2,7 @@
 import { CONFIG } from './config.js';
 import { loadData } from './ai.js';
 import { createSizer } from './size.js';
+import { track } from './track.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -142,6 +143,7 @@ export function addToBag(id, size, qty = 1) {
   saveBag();
   renderBag();
   toast(`${byId.get(id).name} (${size}) added to bag`);
+  track('bag', { product: id });
 }
 
 export function setGiftNote(text) {
@@ -197,6 +199,7 @@ function checkout() {
   });
   const gift = giftNote ? `\n\n🎁 This is a gift. Please include this card:\n"${giftNote}"` : '';
   const text = `Assalamu alaikum Hololand! I'd like to order:\n\n${lines.join('\n')}\n\nSubtotal: ${money(bagTotal())}${gift}\n\nName:\nPhone:\nDelivery address:`;
+  track('order', { value: bagTotal() });
   window.open(`https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 }
 

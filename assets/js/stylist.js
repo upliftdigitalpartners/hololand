@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { money, openQuickView, recHTML } from './shop.js';
+import { track } from './track.js';
 import { endpoint, callAI, loadData, hasBangla, bnDigits } from './ai.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -168,6 +169,7 @@ async function ask(text) {
   text = text.trim().slice(0, 300);
   if (!text) return;
   addMsg('user', text);
+  if (sent === 0) track('chat');
   if (++sent > MAX_MESSAGES) {
     addMsg('bot', 'We’ve covered a lot! For anything else, message us on WhatsApp and the team will help you directly.');
     return;

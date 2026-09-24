@@ -284,7 +284,6 @@ const TEXT_FIELDS = [
     ['settings.store.hours', 'Opening hours', 'e.g. Sat–Thu 11am–9pm'],
     ['settings.store.mapUrl', 'Google Maps link', 'https://maps.app.goo.gl/…'],
   ] },
-  { group: 'Visitor stats', help: 'Paste the token from Cloudflare → Analytics & Logs → Web Analytics → your site → “Manage site” (the 32-character value inside the snippet). Leave empty to turn stats off.', fields: [['settings.analyticsToken', 'Cloudflare Web Analytics token', 'e.g. 1a2b3c4d5e6f…']] },
   { group: 'Social links', fields: [['settings.socials.facebook', 'Facebook'], ['settings.socials.instagram', 'Instagram'], ['settings.socials.tiktok', 'TikTok']] },
   { group: 'Homepage', fields: [
     ['texts.hero.eyebrow', 'Hero: small line above the title'],
@@ -434,6 +433,150 @@ $('[data-publish]').addEventListener('click', async () => {
 });
 
 window.addEventListener('beforeunload', (e) => { if (dirty.size) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------------- stats ---------------- */
+const PAGE_NAMES = { '/': 'Home', '/index.html': 'Home', '/shop.html': 'Shop', '/product.html': 'Product pages', '/lookbook.html': 'Lookbook', '/stylist.html': 'Stylist chat', '/story.html': 'Our story', '/help.html': 'Help & FAQ' };
+const SOURCE_NAMES = { 'facebook.com': 'Facebook', facebook: 'Facebook', fb: 'Facebook', 'instagram.com': 'Instagram', instagram: 'Instagram', ig: 'Instagram', 'google.com': 'Google search', google: 'Google', 'tiktok.com': 'TikTok', tiktok: 'TikTok', 'youtube.com': 'YouTube', 'x.com': 'X (Twitter)', 'bing.com': 'Bing search', whatsapp: 'WhatsApp' };
+const nf = new Intl.NumberFormat('en-IN');
+const fmtDay = (d, long) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', ...(long ? { weekday: 'short' } : {}) });
+let statsDays = 7;
+let statsLoading = false;
+let lastStats = null;
+let resizeT;
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => lastStats && !$('[data-chart]').hidden && renderChart(lastStats), 150); });
+
+async function loadStats() {
+  if (statsLoading) return;
+  statsLoading = true;
+  const el = $('[data-stats-status]');
+  status(el, 'Loading…');
+  try {
+    const r = await api('/admin/stats', { days: statsDays });
+    status(el, r.totals.views ? '' : 'No visits recorded in this period yet. Counting starts from the day this feature went live.');
+    renderKpis(r);
+    renderChart(r);
+    renderRanks(r);
+    $('[data-stats-updated]').textContent = `Updated ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+  } catch (err) {
+    if (err.message !== 'Signed out') status(el, err.message, 'err');
+  } finally { statsLoading = false; }
+}
+
+function renderKpis({ totals: t }) {
+  const conv = t.visitors ? `${((t.orders / t.visitors) * 100).toFixed(1)}% of visitors` : '';
+  const tiles = [
+    ['Visitors', t.visitors, `${nf.format(t.views)} page views`],
+    ['Live now', t.live, 'in the last 5 minutes', 'live'],
+    ['Added to bag', t.bag, t.visitors ? `${((t.bag / t.visitors) * 100).toFixed(1)}% of visitors` : ''],
+    ['WhatsApp orders', t.orders, [conv, t.orderValue ? `${CONFIG.currency}${nf.format(t.orderValue)} in bags` : ''].filter(Boolean).join(' · ')],
+    ['Stylist chats', t.chats, 'conversations started'],
+  ];
+  $('[data-kpis]').innerHTML = tiles.map(([label, n, sub, mod]) => `
+    <div class="kpi ${mod ? `kpi--${mod}` : ''}">
+      <span class="kpi__label">${mod === 'live' ? '<i class="kpi__dot" aria-hidden="true"></i>' : ''}${esc(label)}</span>
+      <strong class="kpi__n">${nf.format(n || 0)}</strong>
+      <span class="kpi__sub">${esc(sub)}</span>
+    </div>`).join('');
+}
+
+function niceMax(v) {
+  if (v <= 4) return 4;
+  const p = 10 ** Math.floor(Math.log10(v));
+  return [1, 2, 2.5, 5, 10].map((m) => m * p).find((m) => m >= v);
+}
+
+function renderChart({ series, days }) {
+  const fig = $('[data-chart]');
+  fig.hidden = days < 7;
+  if (fig.hidden) return;
+  const plotEl = $('[data-chart-plot]');
+  const W = Math.max(280, plotEl.clientWidth || 720), H = W < 520 ? 200 : 260, L = 34, R = 8, T = 10, B = 26;
+  lastStats = arguments[0];
+  const max = niceMax(Math.max(...series.map((d) => d.visitors)));
+  const step = (W - L - R) / series.length;
+  const bw = Math.min(48, Math.max(2, step - 2)); // 2px gap between columns
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  const base = H - B;
+  const ticks = [0, max / 4, max / 2, (3 * max) / 4, max];
+  const every = Math.ceil(series.length / Math.max(2, Math.floor((W - L) / 64)));
+  const bar = (x, top, w) => {
+    const h = base - top;
+    if (h <= 0) return '';
+    const r = Math.min(4, w / 2, h);
+    return `<path class="chart__bar" d="M${x},${base}V${top + r}Q${x},${top} ${x + r},${top}H${x + w - r}Q${x + w},${top} ${x + w},${top + r}V${base}Z"/>`;
+  };
+  $('[data-chart-sub]').textContent = `${fmtDay(series[0].day)} – ${fmtDay(series.at(-1).day)}`;
+  $('[data-chart-plot]').innerHTML = `
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitors per day, ${esc($('[data-chart-sub]').textContent)}">
+      ${ticks.map((v) => `<line class="chart__grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="chart__ax" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${nf.format(Math.round(v))}</text>`).join('')}
+      ${series.map((d, i) => bar(L + i * step + (step - bw) / 2, y(d.visitors), bw)).join('')}
+      ${series.map((d, i) => ((series.length - 1 - i) % every === 0 ? `<text class="chart__ax" x="${L + i * step + step / 2}" y="${H - 8}" text-anchor="middle">${esc(fmtDay(d.day))}</text>` : '')).join('')}
+      ${series.map((d, i) => `<rect class="chart__hit" data-i="${i}" tabindex="0" x="${L + i * step}" y="${T}" width="${step}" height="${base - T}"><title>${esc(fmtDay(d.day, true))}: ${d.visitors} visitors</title></rect>`).join('')}
+    </svg>`;
+  const tip = $('[data-chart-tip]');
+  const plot = $('[data-chart-plot]');
+  const show = (rect) => {
+    const d = series[+rect.dataset.i];
+    tip.innerHTML = `<b>${esc(fmtDay(d.day, true))}</b>
+      <span><i>Visitors</i>${nf.format(d.visitors)}</span><span><i>Page views</i>${nf.format(d.views)}</span>
+      <span><i>Added to bag</i>${nf.format(d.bag)}</span><span><i>WhatsApp orders</i>${nf.format(d.orders)}</span>`;
+    tip.hidden = false;
+    plotHover(rect);
+    const pr = plot.getBoundingClientRect(), rr = rect.getBoundingClientRect(), fr = fig.getBoundingClientRect();
+    const x = rr.left + rr.width / 2 - fr.left;
+    const tw = tip.offsetWidth;
+    tip.style.left = `${Math.max(4, Math.min(fr.width - tw - 4, x - tw / 2))}px`;
+    tip.style.top = `${pr.top - fr.top + 4}px`;
+  };
+  const hide = () => { tip.hidden = true; plotHover(null); };
+  const plotHover = (rect) => $$('.chart__hit', plot).forEach((r) => r.classList.toggle('is-hover', r === rect));
+  $$('.chart__hit', plot).forEach((r) => {
+    r.addEventListener('pointerenter', () => show(r));
+    r.addEventListener('focus', () => show(r));
+    r.addEventListener('blur', hide);
+  });
+  plot.onpointerleave = hide;
+
+  $('[data-chart-table]').innerHTML = `<table class="stable"><thead><tr><th>Day</th><th>Visitors</th><th>Page views</th><th>Added to bag</th><th>WhatsApp orders</th><th>Chats</th></tr></thead><tbody>
+    ${series.slice().reverse().map((d) => `<tr><td>${esc(fmtDay(d.day, true))}</td><td>${d.visitors}</td><td>${d.views}</td><td>${d.bag}</td><td>${d.orders}</td><td>${d.chats}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderRanks(r) {
+  const byId = new Map((state.products?.products || []).map((p) => [p.id, p]));
+  const productName = (id) => byId.get(id)?.name || id;
+  const lists = [
+    ['Most viewed products', r.products, productName, 'views', (id) => byId.get(id)],
+    ['Most added to bag', r.bagProducts, productName, 'adds', (id) => byId.get(id)],
+    ['Where visitors come from', r.referrers, (n) => SOURCE_NAMES[n] || n, 'visits', null, 'Visitors who typed the address, used a bookmark or tapped a link inside an app often show no source.'],
+    ['Pages', r.pages, (n) => PAGE_NAMES[n] || n, 'views'],
+    ['Devices', r.devices, (n) => n, 'visitors', null, null, 'visitors'],
+    ['Cities', r.cities, (n) => n, 'visitors', null, 'Approximate, based on the visitor’s internet provider.', 'visitors'],
+  ];
+  $('[data-ranks]').innerHTML = lists.map(([title, rows, name, unit, prod, help, key = 'n']) => {
+    const top = Math.max(1, ...rows.map((x) => x[key]));
+    return `<section class="rank">
+      <h3>${esc(title)}</h3>
+      ${rows.length ? `<ol>${rows.map((x) => {
+        const p = prod?.(x.name);
+        return `<li>
+          ${p ? `<img src="${esc(imgSrc(p.images[0]))}" alt="" loading="lazy" />` : ''}
+          <span class="rank__name">${esc(name(x.name))}</span>
+          <span class="rank__n">${nf.format(x[key])} <small>${esc(unit)}</small></span>
+          <span class="rank__bar" style="--w:${((x[key] / top) * 100).toFixed(1)}%"></span>
+        </li>`;
+      }).join('')}</ol>` : '<p class="rank__empty">Nothing yet</p>'}
+      ${help ? `<p class="rank__help">${esc(help)}</p>` : ''}
+    </section>`;
+  }).join('');
+}
+
+$$('[data-days]').forEach((b) => b.addEventListener('click', () => {
+  statsDays = +b.dataset.days;
+  $$('[data-days]').forEach((x) => x.classList.toggle('is-active', x === b));
+  loadStats();
+}));
+$('[data-stats-refresh]').addEventListener('click', loadStats);
+$('[data-tab="stats"]').addEventListener('click', loadStats);
 
 /* ---------------- resume session ---------------- */
 try {

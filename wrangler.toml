@@ -29,6 +29,20 @@ name = "LOGIN_LIMIT"       # admin login: 5 attempts / minute / visitor
 namespace_id = "1002"
 simple = { limit = 5, period = 60 }
 
+[[ratelimits]]
+name = "TRACK_LIMIT"       # anonymous page-view stats: 60 events / minute / visitor
+namespace_id = "1003"
+simple = { limit = 60, period = 60 }
+
+# Anonymous site stats (admin → Stats), stored in a SQLite-backed Durable Object.
+[[durable_objects.bindings]]
+name = "STATS"
+class_name = "Stats"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Stats"]
+
 # Secrets are added in the dashboard (Settings → Variables and Secrets), never here:
 #   GROQ_API_KEY  (your gsk_… key)
 #   ADMIN_TOKEN   (the admin password for admin.html)
