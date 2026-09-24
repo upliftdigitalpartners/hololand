@@ -29,11 +29,11 @@ const STORE_WORDS = ['hololand', 'panjabi', 'punjabi', 'kurta', 'sweater', 'knit
   'পোশাক', 'জামা', 'কাপড়', 'দাম', 'কিনতে', 'কিনব', 'দেখান', 'সাজেস্ট', 'স্টাইল', 'কালেকশন', 'পরব', 'পরার', 'রঙ', 'সাইজ', 'অর্ডার', 'দোকান'];
 let sent = 0;
 
-// Honest answer when someone sincerely asks whether they're talking to a person.
+// Honest answer when someone asks whether they're talking to a person or an AI.
 const WHO_RE = /\b(are|r)\s+(you|u)\s+(a\s+|an\s+)?(bot|robot|ai|human|real|person|machine|chatgpt|automated)|\b(real|actual)\s+(person|human)|talk\s+to\s+(a\s+)?(human|person|someone|agent|staff)|is\s+this\s+(a\s+)?(bot|ai|automated)|মানুষ|বট|রোবট/i;
 const WHO = {
-  en: 'I’m Hololand’s automated assistant, here any time for quick answers about our pieces, sizes and orders. If you’d like to talk to someone from our team, tap “Prefer WhatsApp? Message our team” and a real person will reply.',
-  bn: 'আমি Hololand-এর অটোমেটেড সহকারী, পোশাক, সাইজ আর অর্ডার নিয়ে দ্রুত উত্তর দিতে সবসময় আছি। আমাদের টিমের কারো সাথে কথা বলতে চাইলে “Prefer WhatsApp? Message our team” চাপুন, একজন মানুষ উত্তর দেবেন।',
+  en: 'I’m Hololand’s AI assistant, not a person. I’m here any time for quick answers about our pieces, sizes and orders. If you’d like to talk to someone from our team, tap “Prefer WhatsApp? Message our team” and a real person will reply.',
+  bn: 'আমি Hololand-এর AI সহকারী, মানুষ নই। পোশাক, সাইজ আর অর্ডার নিয়ে দ্রুত উত্তর দিতে সবসময় আছি। আমাদের টিমের কারো সাথে কথা বলতে চাইলে “Prefer WhatsApp? Message our team” চাপুন, একজন মানুষ উত্তর দেবেন।',
 };
 
 /* ---------------- Support answers (FAQ) ---------------- */
