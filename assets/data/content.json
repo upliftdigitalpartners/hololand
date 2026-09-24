@@ -2,17 +2,17 @@
   "_note": "Edited from admin.html. 'texts' fill elements marked data-content in index.html; 'settings' override assets/js/config.js.",
   "settings": {
     "announcement": "",
-    "whatsappNumber": "8801000000000",
+    "whatsappNumber": "01711885411",
     "deliveryNote": "Cash on delivery & bKash · Delivery across all 64 districts",
     "store": {
       "address": "Chittagong, Bangladesh",
       "hours": "",
-      "mapUrl": ""
+      "mapUrl": "https://share.google/efauHIfzm4vNoUs3B"
     },
     "socials": {
-      "facebook": "https://facebook.com/",
-      "instagram": "https://instagram.com/",
-      "tiktok": "https://tiktok.com/"
+      "facebook": "https://www.facebook.com/hololandclothing",
+      "instagram": "https://www.instagram.com/hololand.bd/",
+      "tiktok": "https://www.tiktok.com/@hololandclothing"
     }
   },
   "texts": {
@@ -27,6 +27,6 @@
     "story.stat2Number": "64",
     "story.stat2": "Districts we deliver to",
     "story.stat3Number": "100",
-    "story.stat3": "Designed in Chittagong"
+    "story.stat3": "Designed in Bangladesh"
   }
 }
