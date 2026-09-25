@@ -207,14 +207,13 @@ function animations() {
 }
 
 function setupFooter() {
-  // The particle logo is drawn for the dark theme.
-  if (!webgl || lite || document.documentElement.dataset.theme !== 'dark') return;
+  if (!webgl || reduced) return;
   const canvas = $('[data-logo-canvas]');
   const io = new IntersectionObserver(async ([e]) => {
     if (!e.isIntersecting) return;
     io.disconnect();
     const { LogoParticles } = await import('./gl/logo-particles.js');
-    const lp = new LogoParticles(canvas);
+    const lp = new LogoParticles(canvas, { light: document.documentElement.dataset.theme !== 'dark', lite });
     gsap.to(lp.uniforms.uIntro, { value: 1, duration: 3, ease: 'power2.out' });
   }, { rootMargin: '200px' });
   io.observe(canvas);
