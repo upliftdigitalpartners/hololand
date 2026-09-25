@@ -88,14 +88,27 @@ export function cardHTML(p, i = 0) {
           <h3>${esc(p.name)}</h3>
           ${r ? `<span class="card__rating">${stars(r.avg)} <small>(${r.count})</small></span>` : ''}
         </div>
-        <span class="card__price">${money(p.price)}</span>
+        <span class="card__price">${priceHTML(p)}</span>
       </a>
     </article>`;
 }
 
 /** Small product tile used by the stylist, photo match and gift finder. */
 export function recHTML(p) {
-  return `<button class="rec" data-rec="${p.id}" data-cursor="View"><img src="${img(p.images[0])}" alt="${esc(p.name)}" loading="lazy" /><div><strong>${esc(p.name)}</strong><span>${money(p.price)}</span></div></button>`;
+  return `<button class="rec" data-rec="${p.id}" data-cursor="View"><img src="${img(p.images[0])}" alt="${esc(p.name)}" loading="lazy" /><div><strong>${esc(p.name)}</strong><span>${money(priceOf(p))}</span></div></button>`;
+}
+
+/* ---------------- Prices (sale prices) ---------------- */
+const bdToday = () => new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10); // Bangladesh date
+/** True while a product's sale runs (sale price below the normal price, not past its last day). */
+export const onSale = (p) => Number.isInteger(p.sale_price) && p.sale_price > 0 && p.sale_price < p.price && (!p.sale_ends || bdToday() <= p.sale_ends);
+/** The price a product sells at right now. */
+export const priceOf = (p) => (onSale(p) ? p.sale_price : p.price);
+/** Price markup: ~~৳3,650~~ ৳2,990 −18% during a sale. */
+export function priceHTML(p) {
+  if (!onSale(p)) return money(p.price);
+  const off = Math.round((1 - p.sale_price / p.price) * 100);
+  return `<s class="price-was">${money(p.price)}</s> <span class="price-now">${money(p.sale_price)}</span> <span class="price-off">−${off}%</span>`;
 }
 
 /* ---------------- Quick view ---------------- */
@@ -111,7 +124,7 @@ export function openQuickView(id) {
   $('[data-qv-img]', m).alt = `${p.name}, ${p.color} ${p.type}`;
   $('[data-qv-code]', m).textContent = `${p.code} · ${p.type}`;
   $('[data-qv-name]', m).textContent = p.name;
-  $('[data-qv-price]', m).textContent = money(p.price);
+  $('[data-qv-price]', m).innerHTML = priceHTML(p);
   $('[data-qv-desc]', m).textContent = p.desc;
   $('[data-qv-lang]', m).hidden = !p.desc_bn;
   $$('[data-lang]', m).forEach((b) => b.classList.toggle('is-active', b.dataset.lang === 'en'));
@@ -163,7 +176,7 @@ export function setGiftNote(text) {
   renderBag();
 }
 
-function bagTotal() { return bag.reduce((s, l) => s + byId.get(l.id).price * l.qty, 0); }
+function bagTotal() { return bag.reduce((s, l) => s + priceOf(byId.get(l.id)) * l.qty, 0); }
 
 function renderBag() {
   const count = bag.reduce((s, l) => s + l.qty, 0);
@@ -184,7 +197,7 @@ function renderBag() {
           <small>${esc(p.code)} · Size ${esc(l.size)}</small>${lowNote(l.id, l.size) ? `<small class="line-item__low">${esc(lowNote(l.id, l.size))}</small>` : ''}<br />
           <div class="qty"><button data-qty="${i}" data-d="-1" aria-label="Decrease">−</button><span>${l.qty}</span><button data-qty="${i}" data-d="1" aria-label="Increase">+</button></div>
         </div>
-        <div class="line-item__price">${money(p.price * l.qty)}<button class="line-item__remove" data-remove="${i}">Remove</button></div>
+        <div class="line-item__price">${money(priceOf(p) * l.qty)}<button class="line-item__remove" data-remove="${i}">Remove</button></div>
       </div>`;
   }).join('') : '<p class="drawer__empty">Your bag is empty.<br /><a class="link-btn" href="shop.html">Start shopping →</a></p>';
 }
@@ -355,7 +368,7 @@ function whatsappCheckout() {
   if (!bag.length) return;
   const lines = bag.map((l) => {
     const p = byId.get(l.id);
-    return `• ${p.code} ${p.name} (Size ${l.size}) × ${l.qty} = ${money(p.price * l.qty)}`;
+    return `• ${p.code} ${p.name} (Size ${l.size}) × ${l.qty} = ${money(priceOf(p) * l.qty)}`;
   });
   const gift = giftNote ? `\n\n🎁 This is a gift. Please include this card:\n"${giftNote}"` : '';
   const text = `Assalamu alaikum Hololand! I'd like to order:\n\n${lines.join('\n')}\n\nSubtotal: ${money(bagTotal())}${gift}\n\nName:\nPhone:\nDelivery address:`;
@@ -365,7 +378,7 @@ function whatsappCheckout() {
 
 /** WhatsApp link asking about one product. */
 export function askLink(p) {
-  const text = `Assalamu alaikum Hololand! I have a question about ${p.code} ${p.name} (${money(p.price)}): ${location.origin}${location.pathname.replace(/[^/]*$/, '')}${productUrl(p.id)}`;
+  const text = `Assalamu alaikum Hololand! I have a question about ${p.code} ${p.name} (${money(priceOf(p))}): ${location.origin}${location.pathname.replace(/[^/]*$/, '')}${productUrl(p.id)}`;
   return `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
 }
 

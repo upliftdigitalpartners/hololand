@@ -1,6 +1,7 @@
 import { boot, $, $$, animateCards } from '../core.js';
 import { catOf, catUrl, GROUPS } from '../categories.js';
 import { soldOut } from '../stock.js';
+import { priceOf, priceHTML } from '../shop.js';
 import { img, money, esc, safeHex, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady } from '../shop.js';
 import { sizerHTML } from '../layout.js';
 import { createSizer } from '../size.js';
@@ -8,7 +9,7 @@ import { loadData } from '../ai.js';
 
 function setMeta(p) {
   const title = `${p.name} (${p.code}) — Hololand`;
-  const desc = `${p.desc} ${money(p.price)}. Cash on delivery across Bangladesh.`;
+  const desc = `${p.desc} ${money(priceOf(p))}. Cash on delivery across Bangladesh.`;
   const url = `https://hololandbd.com/product.html?id=${encodeURIComponent(p.id)}`;
   const image = `https://hololandbd.com/${img(p.images[0], 'lg')}`;
   document.title = title;
@@ -23,7 +24,7 @@ function setMeta(p) {
   const ld = {
     '@context': 'https://schema.org', '@type': 'Product', name: p.name, sku: p.code, image, description: p.desc, color: p.color,
     brand: { '@type': 'Brand', name: 'Hololand' },
-    offers: { '@type': 'Offer', priceCurrency: 'BDT', price: p.price, availability: 'https://schema.org/InStock', url },
+    offers: { '@type': 'Offer', priceCurrency: 'BDT', price: priceOf(p), availability: 'https://schema.org/InStock', url },
     ...(r ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: r.avg.toFixed(1), reviewCount: r.count } } : {}),
   };
   const s = document.createElement('script');
@@ -74,7 +75,7 @@ boot('product', async ({ products, gsap }) => {
   // Info
   $('[data-pdp-code]').textContent = `${p.code} · ${p.type}`;
   $('[data-pdp-name]').textContent = p.name;
-  $('[data-pdp-price]').textContent = money(p.price);
+  $('[data-pdp-price]').innerHTML = priceHTML(p);
   const r = ratingOf(p.id);
   $('[data-pdp-rating]').innerHTML = r ? `${stars(r.avg)} <small>${r.avg.toFixed(1)} (${r.count})</small>` : '';
   $('[data-pdp-desc]').textContent = p.desc;
@@ -110,7 +111,7 @@ boot('product', async ({ products, gsap }) => {
   $('[data-pdp-add]').addEventListener('click', add);
   $('[data-bar-add]').addEventListener('click', add);
   $('[data-bar-name]').textContent = p.name;
-  $('[data-bar-price]').textContent = money(p.price);
+  $('[data-bar-price]').textContent = money(priceOf(p));
   new IntersectionObserver(([e]) => $('[data-pdp-bar]').classList.toggle('is-visible', !e.isIntersecting && e.boundingClientRect.top < 0))
     .observe($('[data-pdp-add]'));
 

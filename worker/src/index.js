@@ -103,10 +103,10 @@ export default {
     if (route === 'login') {
       try { return json(await login(request, env), 200, cors); } catch (err) { return json({ error: err.message }, err.status || 400, cors); }
     }
-    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts', 'stock-set', 'promos', 'courier-send', 'courier-refresh'].includes(route);
+    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts', 'stock-set', 'promos', 'courier-send', 'courier-refresh', 'sales', 'phone-flag'].includes(route);
     if (admin && !(await isAdmin(request, env))) return json({ error: 'login required' }, 401, cors);
     if (!admin && !env.GROQ_API_KEY) return json({ error: 'GROQ_API_KEY is not set' }, 500, cors);
-    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts, 'stock-set': setStock, promos, 'courier-send': courierSend, 'courier-refresh': courierRefresh };
+    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts, 'stock-set': setStock, promos, 'courier-send': courierSend, 'courier-refresh': courierRefresh, sales, 'phone-flag': phoneFlag };
     if (!handlers[route]) return json({ error: 'not found' }, 404, cors);
     try {
       return json(await handlers[route](request, env), 200, cors);
@@ -148,6 +148,13 @@ function json(body, status, headers) {
 
 const clip = (v, n) => String(v ?? '').slice(0, n);
 
+/** Price a product sells at right now: its sale price while the sale runs (Bangladesh date), else the normal price. */
+function priceOf(p, now = Date.now()) {
+  const onSale = Number.isInteger(p.sale_price) && p.sale_price > 0 && p.sale_price < p.price
+    && (!p.sale_ends || dayOf(now) <= p.sale_ends);
+  return onSale ? p.sale_price : p.price;
+}
+
 async function loadData(env) {
   if (Date.now() - cache.at < 2 * 60 * 1000 && cache.text) return cache;
   const base = (env.SITE_URL || '').replace(/\/$/, '');
@@ -174,7 +181,7 @@ async function loadData(env) {
   cache.faq = f.faq || [];
   cache.ids = new Set(p.products.map((x) => x.id));
   cache.text = p.products.map((x) =>
-    `${x.id} | ${x.code} | ${x.name} | ${cache.catNames?.[x.cat] || x.cat} | ${x.color} (${x.hex}) | ৳${x.price} | ${x.fabric} | tags: ${x.tags.join(', ')}`
+    `${x.id} | ${x.code} | ${x.name} | ${cache.catNames?.[x.cat] || x.cat} | ${x.color} (${x.hex}) | ৳${priceOf(x)}${priceOf(x) < x.price ? ` (on sale, was ৳${x.price})` : ''} | ${x.fabric} | tags: ${x.tags.join(', ')}`
   ).join('\n');
   cache.faqText = cache.faq.map((x) => `Q: ${x.q}\nA: ${x.a}`).join('\n');
   const st = c.settings?.store || {};
@@ -466,6 +473,8 @@ function validateJson(path, text) {
       }
       const bad = (msg) => httpError(400, `Product "${p.id}": ${msg}`);
       if (!Number.isInteger(p.price) || p.price > 1_000_000) throw bad('price must be a whole number of taka');
+      if (p.sale_price != null && !(Number.isInteger(p.sale_price) && p.sale_price > 0 && p.sale_price < p.price)) throw bad('sale price must be a whole number below the normal price');
+      if (p.sale_ends != null && !/^\d{4}-\d{2}-\d{2}$/.test(p.sale_ends)) throw bad('sale end date must look like 2026-10-31');
       if (!/^#[0-9a-f]{6}$/i.test(p.hex || '')) throw bad('colour swatch must look like #1a2b3c');
       if (!p.images.every((b) => typeof b === 'string' && /^[a-z0-9][a-z0-9-]{0,60}$/.test(b))) throw bad('photo names may only use a-z, 0-9 and dashes');
       if (p.tags && (!Array.isArray(p.tags) || !p.tags.every((t) => typeof t === 'string' && t.length <= 30))) throw bad('tags must be short words');
@@ -614,7 +623,7 @@ async function placeOrder(request, env, ctx) {
     if (sizes[p.cat]?.length ? !sizes[p.cat].includes(size) : !/^[\w .+/-]{1,12}$/.test(size)) throw httpError(400, `Please pick a size for ${p.name}.`);
     const qty = Math.round(Number(it.qty));
     if (!(qty >= 1 && qty <= 10)) throw httpError(400, 'Quantity must be between 1 and 10.');
-    items.push({ id: p.id, code: p.code, name: p.name, size, qty, price: p.price });
+    items.push({ id: p.id, code: p.code, name: p.name, size, qty, price: priceOf(p) });
   }
   if (items.reduce((n, l) => n + l.qty, 0) > 30) throw httpError(400, 'For more than 30 pieces, please message us and we’ll arrange a bulk order.');
   // Prices always come from the live catalogue, never from the browser.
@@ -626,7 +635,9 @@ async function placeOrder(request, env, ctx) {
     items: JSON.stringify(items), subtotal, delivery: fee,
     promo: normalizePromo(b.promo) || null,
   };
-  const { id, duplicate, soldOut, tooMany, promoError, discount = 0, total } = await stub.create(order);
+  const { id, duplicate, soldOut, tooMany, promoError, blocked, needAdvance, discount = 0, total } = await stub.create(order);
+  if (blocked) throw httpError(400, 'We can’t take online orders for this number. Please contact us on WhatsApp.');
+  if (needAdvance) throw httpError(400, 'For this number we need advance payment. Please choose bKash, and we’ll send the payment details.');
   if (promoError) throw httpError(400, `${promoError} Remove it to order without a discount.`);
   if (tooMany) throw httpError(429, 'You already have orders waiting for confirmation. We’ll call you soon; for anything urgent, message us.');
   if (soldOut) {
@@ -695,6 +706,7 @@ function orderText(o) {
     ...(o.discount ? [`Promo ${tgEsc(o.promo)}: −${taka(o.discount)}`] : []),
     `Delivery ${o.delivery ? taka(o.delivery) : 'free'} · <b>Total ${taka(o.total)}</b>`,
   ];
+  if (o.risk) lines.push('', tgEsc(o.risk));
   if (o.note) lines.push('', `📝 ${tgEsc(o.note)}`);
   if (o.gift) lines.push(`🎁 Gift card: “${tgEsc(o.gift)}”`);
   return lines.join('\n');
@@ -703,6 +715,9 @@ function orderText(o) {
 async function notifyOrder(env, stub, order) {
   if (!env.TELEGRAM_BOT_TOKEN) return;
   const chats = (await stub.getKV('tg_chats')) || [];
+  const h = await stub.historyFor(order.phone);
+  if (h.returned) order = { ...order, risk: `⚠️ This number returned ${h.returned} parcel${h.returned > 1 ? 's' : ''} before (${h.delivered} delivered).` };
+  else if (h.delivered) order = { ...order, risk: `✅ Returning customer: ${h.delivered} delivered before.` };
   const link = adminLink(env);
   await Promise.all(chats.map((c) => tg(env, 'sendMessage', {
     chat_id: c.id, text: orderText(order), parse_mode: 'HTML', disable_web_page_preview: true,
@@ -810,6 +825,7 @@ async function productFeed(env) {
         ['g:availability', tracked && n <= 0 ? 'out of stock' : 'in stock'],
         ...(tracked ? [['g:quantity_to_sell_on_facebook', Math.max(0, n)]] : []),
         ['g:price', `${p.price}.00 BDT`],
+        ...(priceOf(p) < p.price ? [['g:sale_price', `${priceOf(p)}.00 BDT`]] : []),
         ['g:condition', 'new'],
         ['g:brand', 'Hololand'],
         ['g:google_product_category', '1604'], // Apparel & Accessories > Clothing
@@ -943,4 +959,19 @@ async function orderStatus(request, env, ctx) {
     }
   }
   return st;
+}
+
+/* ---------------- sales report + customer flags ---------------- */
+async function sales(request, env) {
+  const { days } = await request.json().catch(() => ({}));
+  const d = [1, 7, 30, 90].includes(+days) ? +days : 7;
+  return ordersStub(env).salesReport(d);
+}
+
+async function phoneFlag(request, env) {
+  const { phone, mode } = await request.json().catch(() => ({}));
+  const ph = normalizePhone(phone);
+  if (!ph) throw httpError(400, 'Bad phone number');
+  if (![null, '', 'advance', 'block'].includes(mode ?? null)) throw httpError(400, 'Bad mode');
+  return { flags: await ordersStub(env).setPhoneFlag(ph, mode || null) };
 }

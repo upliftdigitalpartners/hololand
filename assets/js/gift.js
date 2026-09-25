@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { recHTML, money, setGiftNote, openBag, toast } from './shop.js';
+import { recHTML, money, setGiftNote, openBag, toast, priceOf } from './shop.js';
 import { aiEnabled, callAI, esc } from './ai.js';
 import { catOf } from './categories.js';
 
@@ -48,7 +48,7 @@ function pick() {
   const cat = who?.[2];
   const tags = [...(OCC_TAGS[answers.occasion] || []), answers.style];
   return products
-    .filter((p) => (!cat || [cat, 'all'].includes(catOf(p.cat).group)) && p.price <= +answers.budget)
+    .filter((p) => (!cat || [cat, 'all'].includes(catOf(p.cat).group)) && priceOf(p) <= +answers.budget)
     .map((p) => ({ p, s: tags.reduce((s, t) => s + (p.tags.includes(t) ? 1 : 0), 0) + Math.random() * 0.3 }))
     .sort((a, b) => b.s - a.s)
     .slice(0, 3)
@@ -104,7 +104,7 @@ async function finish() {
       </div>
     </div>
     <button class="link-btn" data-gift-restart>↺ Start again</button>`;
-  if (picks.length) $('[data-gift] .recs').insertAdjacentHTML('afterend', `<p class="pane__hint">From ${money(Math.min(...picks.map((p) => p.price)))}. Tap a piece to choose a size.</p>`);
+  if (picks.length) $('[data-gift] .recs').insertAdjacentHTML('afterend', `<p class="pane__hint">From ${money(Math.min(...picks.map((p) => priceOf(p))))}. Tap a piece to choose a size.</p>`);
 }
 
 export function initGift(list) {

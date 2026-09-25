@@ -21,6 +21,7 @@ const HEADLINE = {
   shipped: ['On the way', 'Your parcel is with the courier.'],
   delivered: ['Delivered', 'Thank you for shopping with Hololand!'],
   cancelled: ['Cancelled', 'This order was cancelled. Contact us if that’s unexpected.'],
+  returned: ['Returned', 'This parcel came back to us. Contact us if you’d still like it.'],
 };
 const fmtDate = (ts) => new Date(ts).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -42,8 +43,8 @@ boot('track', async () => {
     $('[data-t-headline]').textContent = h;
     $('[data-t-sub]').textContent = sub;
     const at = STEPS.findIndex(([k]) => k === o.status);
-    $('[data-t-steps]').innerHTML = o.status === 'cancelled'
-      ? '<li class="is-cancelled"><i></i><span>Cancelled</span></li>'
+    $('[data-t-steps]').innerHTML = o.status === 'cancelled' || o.status === 'returned'
+      ? `<li class="is-cancelled"><i></i><span>${o.status === 'returned' ? 'Returned' : 'Cancelled'}</span></li>`
       : STEPS.map(([k, label], i) => `<li class="${i < at ? 'is-done' : i === at ? 'is-now' : ''}"><i></i><span>${label}</span></li>`).join('');
     const c = $('[data-t-courier]');
     c.hidden = !o.courier;
