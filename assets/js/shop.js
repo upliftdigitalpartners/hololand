@@ -4,6 +4,7 @@ import { loadData } from './ai.js';
 import { createSizer } from './size.js';
 import { track } from './track.js';
 import { left, soldOut, lowNote } from './stock.js';
+import { deliveryLine, areaEta } from './delivery.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -135,6 +136,7 @@ export function openQuickView(id) {
     ? p.images.map((b, i) => `<button class="${i ? '' : 'is-active'}" data-thumb="${safeImg(b)}" aria-label="Image ${i + 1}"><img src="${img(b)}" alt="" /></button>`).join('')
     : '';
   qvSizer.setProduct(p);
+  $('[data-qv-eta]', m).textContent = deliveryLine();
   const add = $('[data-qv-add]', m);
   add.disabled = soldOut(p);
   add.querySelector('span').textContent = add.disabled ? 'Sold out' : 'Add to bag';
@@ -278,6 +280,7 @@ function updateSummary() {
   $('[data-co-subtotal]').textContent = money(sub);
   $('[data-co-delivery]').textContent = fee == null ? 'Choose area' : fee ? money(fee) : 'Free';
   $('[data-co-total]').textContent = money(sub - disc + (fee || 0));
+  $('[data-co-eta]').textContent = f.elements.area.value ? `🚚 ${areaEta(f.elements.area.value)}` : '';
 }
 
 const REMEMBER = 'hl.customer';

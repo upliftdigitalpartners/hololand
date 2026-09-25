@@ -132,6 +132,55 @@ export class Orders extends DurableObject {
     return { ok: true };
   }
 
+  /* ---- editing an order (before it's booked with the courier) ---- */
+  /** f: customer fields; items: [{id,code,name,size,qty,price}]; totals: {subtotal, delivery}. Re-does stock and discount. */
+  async editOrder(id, f, items, totals, now = Date.now()) {
+    const row = this.sql.exec('SELECT * FROM orders WHERE id = ?', id).toArray()[0];
+    if (!row) return { error: 'Order not found' };
+    if (!['new', 'confirmed'].includes(row.status) || row.consignment_id) return { error: 'Only new or confirmed orders that aren’t booked with the courier can be edited.' };
+    // Swap stock: give back what the order held, check the new items, take them.
+    const old = JSON.parse(row.stock_taken || '[]');
+    this.put(old);
+    const short = this.shortages(items);
+    if (short.length) { this.take(old.map((t) => ({ id: t.id, size: t.size, qty: t.qty }))); return { soldOut: short }; }
+    const taken = this.take(items);
+    // Keep the promo: recalculate a % code on the new subtotal; a taka code stays (capped at the subtotal).
+    let discount = 0;
+    if (row.promo) {
+      const p = this.sql.exec('SELECT type, value FROM promos WHERE code = ?', row.promo).toArray()[0];
+      discount = p ? (p.type === 'percent' ? Math.round((totals.subtotal * p.value) / 100) : Math.min(p.value, totals.subtotal)) : Math.min(row.discount || 0, totals.subtotal);
+    }
+    const total = totals.subtotal - discount + totals.delivery;
+    this.sql.exec(`UPDATE orders SET name = ?, phone = ?, area = ?, address = ?, payment = ?, note = ?, items = ?, subtotal = ?, discount = ?,
+      delivery = ?, total = ?, stock_taken = ?, updated = ? WHERE id = ?`,
+      f.name, f.phone, f.area, f.address, f.payment, f.note, JSON.stringify(items), totals.subtotal, discount, totals.delivery, total, JSON.stringify(taken), now, id);
+    return { order: await this.getOrder(id) };
+  }
+
+  /** Orders placed between two Bangladesh dates (inclusive), oldest first, for the CSV export. */
+  async exportOrders(from, to, limit = 5000) {
+    return this.sql.exec('SELECT * FROM orders ORDER BY ts ASC LIMIT 20000').toArray()
+      .filter((r) => { const d = dayOf(r.ts); return d >= from && d <= to; })
+      .slice(0, limit).map((r) => ({ ...r, items: JSON.parse(r.items || '[]') }));
+  }
+
+  /** Numbers for the morning Telegram summary: one Bangladesh day, plus what's waiting now. */
+  async daySummary(day) {
+    const rows = this.sql.exec('SELECT * FROM orders WHERE ts > ?', Date.now() - 3 * 86_400_000).toArray().filter((r) => dayOf(r.ts) === day);
+    const live = rows.filter((r) => !OFF.has(r.status));
+    const units = new Map();
+    for (const r of live) for (const l of JSON.parse(r.items || '[]')) units.set(l.name, (units.get(l.name) || 0) + l.qty);
+    const best = [...units].sort((a, b) => b[1] - a[1])[0];
+    const count = (st) => this.sql.exec('SELECT COUNT(*) AS n FROM orders WHERE status = ?', st).toArray()[0].n;
+    return {
+      day, orders: live.length, revenue: live.reduce((n, r) => n + r.total, 0), cancelled: rows.length - live.length,
+      best: best ? { name: best[0], units: best[1] } : null,
+      waiting: { new: count('new'), confirmed: count('confirmed'), shipped: count('shipped') },
+      deliveredYesterday: this.sql.exec("SELECT COUNT(*) AS n FROM orders WHERE status = 'delivered' AND updated > ?", Date.now() - 86_400_000).toArray()[0].n,
+      lowStock: this.sql.exec('SELECT product, size, qty FROM stock WHERE qty <= 2 ORDER BY qty, product LIMIT 12').toArray(),
+    };
+  }
+
   /* ---- customer history (risky customers) ---- */
   /** { phone: { orders, delivered, returned, cancelled, open } } over all past orders. */
   phoneHistory(phones) {

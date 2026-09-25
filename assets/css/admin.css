@@ -275,3 +275,51 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .stats__h small { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-left: 6px; }
 [data-sales-ranks] { margin-bottom: 8px; }
 .kpi--warn .kpi__n { color: var(--orange-2); }
+
+/* Order tools */
+.ocard__foot .link-btn + .link-btn { margin-left: 0; }
+.oedit { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--orange); border-radius: 16px; background: var(--ink); }
+.olines { display: grid; gap: 8px; }
+.oline { display: grid; grid-template-columns: 1fr 90px 64px auto; gap: 8px; align-items: center; font-size: 13px; }
+.oline select, .oline input { background: var(--ink-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px; color: var(--cream); font: 600 13px var(--sans); width: 100%; }
+.oline--add { grid-template-columns: 1fr; }
+.oline__name { color: var(--cream); }
+.ocard.is-editing .ocard__foot { display: none; }
+.exportbox { position: relative; }
+.exportbox summary { list-style: none; cursor: pointer; }
+.exportbox summary::-webkit-details-marker { display: none; }
+.exportbox__body { position: absolute; z-index: 5; top: calc(100% + 8px); right: 0; display: grid; gap: 10px; width: 250px; padding: 14px; border: 1px solid var(--line-2); border-radius: 16px; background: var(--ink-2); box-shadow: 0 20px 50px -20px #000; }
+.alerts__summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+@media (max-width: 700px) { .oline:not(.oline--add) { grid-template-columns: 1fr 80px 56px auto; } .exportbox__body { left: 0; right: auto; } }
+
+/* Printing: only the invoice / label */
+.printsheet { display: none; }
+@media print {
+  body.adm > *:not(.printsheet) { display: none !important; }
+  body.adm { background: #fff !important; }
+  .printsheet { display: block !important; color: #111; font: 12px/1.45 'Manrope', Arial, sans-serif; background: #fff; }
+  .pi { padding: 8mm; }
+  .pi__head { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #ed7315; padding-bottom: 10px; margin-bottom: 14px; }
+  .pi__logo { height: 34px; }
+  .pi__shop { margin-top: 6px; color: #444; }
+  .pi__title { text-align: right; }
+  .pi__title h1 { margin: 0 0 4px; font: 400 28px 'Instrument Serif', Georgia, serif; }
+  .pi__to { display: grid; margin-bottom: 14px; }
+  .pi__to small, .pl small { text-transform: uppercase; letter-spacing: .1em; color: #666; font-size: 9px; }
+  .pi__items, .pi__sum { width: 100%; border-collapse: collapse; }
+  .pi__items th, .pi__items td { padding: 6px 4px; border-bottom: 1px solid #ddd; text-align: left; }
+  .pi__items th:nth-child(n+3), .pi__items td:nth-child(n+3) { text-align: right; }
+  .pi__sum { width: 55%; margin: 12px 0 0 auto; }
+  .pi__sum td { padding: 4px; } .pi__sum td:last-child { text-align: right; }
+  .pi__total td { border-top: 2px solid #111; font-weight: 700; font-size: 14px; }
+  .pi__note { margin: 10px 0 0; } .pi__foot { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ddd; color: #555; font-size: 11px; }
+  .printsheet--label { width: 80mm; }
+  .pl { padding: 3mm; display: grid; gap: 6px; font-size: 12px; }
+  .pl__from { font-size: 10px; border-bottom: 1px dashed #999; padding-bottom: 4px; }
+  .pl__to { display: grid; gap: 2px; }
+  .pl__name { font-size: 18px; } .pl__phone { font-size: 20px; letter-spacing: .03em; } .pl__addr { font-size: 14px; }
+  .pl__cod { display: flex; justify-content: space-between; align-items: center; border: 2px solid #111; border-radius: 6px; padding: 6px 8px; }
+  .pl__cod b { font-size: 22px; }
+  .pl__items, .pl__note, .pl__meta { font-size: 11px; }
+  @page { margin: 6mm; }
+}

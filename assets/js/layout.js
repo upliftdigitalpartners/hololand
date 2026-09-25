@@ -121,6 +121,7 @@ const OVERLAYS = `
         ${sizerHTML()}
         <button class="btn btn--solid btn--wide" data-qv-add><span>Add to bag</span></button>
         <a class="qv__more link-btn" data-qv-link href="#">View full details →</a>
+        <p class="eta" data-qv-eta></p>
         <p class="qv__note" data-delivery-note></p>
       </div>
     </div>
@@ -157,6 +158,7 @@ const OVERLAYS = `
               <label><input type="radio" name="area" value="inside" required /><span>Inside Chittagong city<small data-fee="inside"></small></span></label>
               <label><input type="radio" name="area" value="outside" /><span>Outside Chittagong<small data-fee="outside"></small></span></label>
             </div>
+            <small class="co-eta" data-co-eta></small>
           </fieldset>
           <label class="cf"><span>Full address</span><textarea name="address" rows="3" autocomplete="street-address" maxlength="300" placeholder="House, road, area, thana, district" required></textarea></label>
           <fieldset class="cf"><legend>Payment</legend>

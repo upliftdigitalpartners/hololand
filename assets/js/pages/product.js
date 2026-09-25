@@ -1,6 +1,7 @@
 import { boot, $, $$, animateCards } from '../core.js';
 import { catOf, catUrl, GROUPS } from '../categories.js';
 import { soldOut } from '../stock.js';
+import { deliveryLine } from '../delivery.js';
 import { priceOf, priceHTML } from '../shop.js';
 import { img, money, esc, safeHex, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady } from '../shop.js';
 import { sizerHTML } from '../layout.js';
@@ -76,6 +77,7 @@ boot('product', async ({ products, gsap }) => {
   $('[data-pdp-code]').textContent = `${p.code} · ${p.type}`;
   $('[data-pdp-name]').textContent = p.name;
   $('[data-pdp-price]').innerHTML = priceHTML(p);
+  $('[data-eta]').textContent = deliveryLine();
   const r = ratingOf(p.id);
   $('[data-pdp-rating]').innerHTML = r ? `${stars(r.avg)} <small>${r.avg.toFixed(1)} (${r.count})</small>` : '';
   $('[data-pdp-desc]').textContent = p.desc;

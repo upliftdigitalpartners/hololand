@@ -58,8 +58,9 @@ tag = "v2"
 new_sqlite_classes = ["Orders"]
 
 # Hourly: refresh the courier status of parcels on the way (Steadfast).
+# Daily 03:00 UTC = 09:00 in Bangladesh: morning summary on Telegram.
 [triggers]
-crons = ["17 * * * *"]
+crons = ["17 * * * *", "0 3 * * *"]
 
 # Secrets are added in the dashboard (Settings → Variables and Secrets), never here:
 #   GROQ_API_KEY  (your gsk_… key)
