@@ -70,7 +70,9 @@ export function renderReviews(box, p, { max = 3 } = {}) {
 }
 
 /* ---------------- Cards ---------------- */
-export function cardHTML(p, i = 0) {
+/** `eager` (only true, since .map passes the array third) loads the photo at once: for the first cards on the shop page. */
+export function cardHTML(p, i = 0, eager = false) {
+  const load = eager === true ? `loading="eager"${i < 2 ? ' fetchpriority="high"' : ''}` : 'loading="lazy"';
   const alt = p.images[1];
   const out = soldOut(p);
   const r = ratingOf(p.id);
@@ -80,7 +82,7 @@ export function cardHTML(p, i = 0) {
       <div class="card__frame">
         <a class="card__media arch" href="${productUrl(p.id)}" data-quick="${p.id}" data-cursor="View" aria-label="${esc(p.name)}: choose size">
           ${out ? '<span class="card__tag">Sold out</span>' : ''}
-          <img src="${img(p.images[0])}" alt="${esc(p.name)}, ${esc(p.color.toLowerCase())} ${esc(p.type.toLowerCase())}" loading="lazy" />
+          <img src="${img(p.images[0])}" alt="${esc(p.name)}, ${esc(p.color.toLowerCase())} ${esc(p.type.toLowerCase())}" ${load} />
           ${alt ? `<img class="alt" src="${img(alt)}" alt="" loading="lazy" />` : ''}
         </a>
       </div>

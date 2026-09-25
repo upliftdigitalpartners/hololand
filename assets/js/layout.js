@@ -43,7 +43,7 @@ export function refreshCategoryLinks(page, active = activeKey(page)) {
   const menu = document.querySelector('.mobile-menu__links');
   if (menu) menu.innerHTML = menuLinks(active);
   const shop = document.querySelector('[data-footer-shop]');
-  if (shop) shop.innerHTML = `<h4>Shop</h4>${footerShop()}`;
+  if (shop) shop.innerHTML = `<h3>Shop</h3>${footerShop()}`;
 }
 
 function header(page) {
@@ -57,7 +57,7 @@ function header(page) {
     </nav>
     <div class="nav__right">
       <span class="weather-chip" data-weather hidden></span>
-      <button class="bag-btn" data-open-bag data-magnetic aria-label="Open bag">${BAG_ICON}<span class="bag-btn__count" data-bag-count>0</span></button>
+      <button class="bag-btn" data-open-bag data-magnetic>${BAG_ICON}<span class="sr-only">Open bag, items: </span><span class="bag-btn__count" data-bag-count>0</span></button>
       <button class="menu-btn" data-menu aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
     </div>
   </header>
@@ -87,10 +87,10 @@ function footer() {
       </div>
     </div>
     <div class="footer__cols">
-      <div data-footer-shop><h4>Shop</h4>${footerShop()}</div>
-      <div><h4>Help</h4><a href="track.html">Track your order</a><a href="help.html">FAQ &amp; delivery</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
-      <div data-store-col hidden><h4>Visit us</h4><span data-store-address></span><span data-store-hours></span><a data-store-map target="_blank" rel="noopener" hidden>Open in Google Maps ↗</a></div>
-      <div><h4>Follow</h4><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
+      <div data-footer-shop><h3>Shop</h3>${footerShop()}</div>
+      <div><h3>Help</h3><a href="track.html">Track your order</a><a href="help.html">FAQ &amp; delivery</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
+      <div data-store-col hidden><h3>Visit us</h3><span data-store-address></span><span data-store-hours></span><a data-store-map target="_blank" rel="noopener" hidden>Open in Google Maps ↗</a></div>
+      <div><h3>Follow</h3><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
     </div>
     <div class="footer__bottom">
       <span><a href="admin.html" class="admin-link" aria-label="Admin" rel="nofollow">©</a> <span data-year></span> Hololand · Made in Bangladesh</span>

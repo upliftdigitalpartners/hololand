@@ -98,6 +98,9 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
 .empty h3 em { color: var(--orange-2); }
 .empty p { color: var(--cream-2); margin: 0 0 22px; }
 .empty__cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+/* Hold the space until the categories and products arrive, so nothing jumps on phones. */
+.shopbar .tabs { min-height: 51px; }
+.grid--shop.is-pending { min-height: 110vh; }
 @media (max-width: 960px) {
   .shop-layout { grid-template-columns: 1fr; }
   .grid--shop { grid-template-columns: repeat(2, 1fr); }
@@ -106,6 +109,9 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
   .filters.is-open { transform: none; box-shadow: 0 0 0 100vmax var(--scrim), 0 -30px 80px -20px #000; }
   body.filters-open .page { z-index: 60; }
   .filters__head, .filters__apply { display: flex; }
+  /* Nothing in the sheet may shrink (the button used to collapse to 0 px), and "Show results" stays in reach. */
+  .filters > * { flex-shrink: 0; }
+  .filters__apply { position: sticky; bottom: 0; z-index: 1; box-shadow: 0 -18px 22px 6px var(--ink-2); }
   .shopbar .tabs { width: 100%; overflow-x: auto; scrollbar-width: none; }
   .shopbar .tabs button { flex: none; }
   .shopbar__right { width: 100%; justify-content: space-between; }
@@ -183,6 +189,14 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
 .lookbook__caption { pointer-events: auto; }
 .lookbook__cta { margin-top: 12px; }
 .lookbook[hidden] { display: none; }
+.lb-masonry:empty { min-height: 120vh; } /* until the photos arrive */
+/* Phones get the photo grid only (see lookbook.js); hide the 3D gallery before it's laid out. */
+.lb-phone { display: none; }
+@media (pointer: coarse), (max-width: 899px) {
+  .lookbook, .lb-hero__scroll { display: none; }
+  .lb-desk { display: none; }
+  .lb-phone { display: inline; }
+}
 .lb-all { padding: clamp(80px, 10vw, 140px) 0; border-top: 1px solid var(--line); }
 .lb-masonry { columns: 4 240px; column-gap: 14px; padding: 0 var(--gutter); }
 .lb-tile { position: relative; display: block; margin-bottom: 14px; break-inside: avoid; border-radius: 999px 999px 16px 16px; overflow: hidden; background: var(--ink-3); }
@@ -223,8 +237,8 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
 .values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 var(--gutter) clamp(80px, 10vw, 140px); background: var(--ink); position: relative; z-index: 2; }
 .value { padding: 30px; border: 1px solid var(--line); border-radius: 24px; background: var(--ink-2); }
 .value__num { font-size: 11px; letter-spacing: .2em; color: var(--muted); }
-.value h3 { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 2.6vw, 40px); line-height: 1.05; margin: 16px 0 12px; }
-.value h3 em { color: var(--orange-2); }
+.value h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 2.6vw, 40px); line-height: 1.05; margin: 16px 0 12px; }
+.value h2 em { color: var(--orange-2); }
 .value p { color: var(--cream-2); margin: 0; }
 .page--story .story__strip { padding: 0 var(--gutter); margin: 0 0 clamp(80px, 10vw, 140px); }
 @media (max-width: 860px) {

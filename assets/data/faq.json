@@ -84,18 +84,19 @@
     {
       "id": "order",
       "q": "How do I place an order?",
-      "a": "Add items to your bag and tap “Order on WhatsApp”. Your order is sent to us pre-filled; just add your name, phone and address and we’ll confirm.",
+      "a": "Add items to your bag, tap “Checkout” and fill in your name, phone number and address. Pay cash on delivery or by bKash. You get an order number straight away, we call or message you to confirm, and you can follow it at hololandbd.com/track.html.",
       "q_bn": "কিভাবে অর্ডার করব?",
-      "a_bn": "ব্যাগে পণ্য যোগ করে “Order on WhatsApp” চাপুন। অর্ডারের তথ্য আপনা থেকেই চলে আসবে; শুধু নাম, ফোন আর ঠিকানা লিখে পাঠান।",
+      "a_bn": "ব্যাগে পণ্য যোগ করে “Checkout” চাপুন, তারপর নাম, ফোন নম্বর আর ঠিকানা লিখুন। ক্যাশ অন ডেলিভারি বা বিকাশে পেমেন্ট করা যায়। সাথে সাথে অর্ডার নম্বর পাবেন, আমরা ফোন বা মেসেজ করে কনফার্ম করব, আর hololandbd.com/track.html এ অর্ডারের অবস্থা দেখতে পারবেন।",
       "keywords": [
         "order",
         "how to buy",
         "purchase",
         "checkout",
-        "whatsapp",
         "অর্ডার",
         "কিনব",
-        "কিভাবে কিনব"
+        "কিভাবে কিনব",
+        "place order",
+        "অর্ডার দিব"
       ]
     },
     {
