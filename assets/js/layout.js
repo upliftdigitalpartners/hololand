@@ -88,7 +88,7 @@ function footer() {
     </div>
     <div class="footer__cols">
       <div data-footer-shop><h4>Shop</h4>${footerShop()}</div>
-      <div><h4>Help</h4><a href="help.html">FAQ &amp; delivery</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
+      <div><h4>Help</h4><a href="track.html">Track your order</a><a href="help.html">FAQ &amp; delivery</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
       <div data-store-col hidden><h4>Visit us</h4><span data-store-address></span><span data-store-hours></span><a data-store-map target="_blank" rel="noopener" hidden>Open in Google Maps ↗</a></div>
       <div><h4>Follow</h4><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
     </div>
@@ -165,6 +165,10 @@ const OVERLAYS = `
               <label><input type="radio" name="payment" value="bkash" /><span>bKash<small>We’ll send payment details</small></span></label>
             </div>
           </fieldset>
+          <div class="cf promo"><span>Promo code <small>(optional)</small></span>
+            <div class="promo__row"><input name="promo" maxlength="20" autocapitalize="characters" autocomplete="off" placeholder="e.g. EID10" /><button type="button" class="btn btn--ghost btn--sm" data-promo-apply><span>Apply</span></button></div>
+            <small class="promo__msg" data-promo-msg aria-live="polite"></small>
+          </div>
           <label class="cf"><span>Note <small>(optional)</small></span><input name="note" maxlength="300" placeholder="e.g. call before delivery" /></label>
           <label class="cf cf--hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
           <label class="check"><input type="checkbox" name="remember" /> Remember my details on this device</label>
@@ -173,6 +177,7 @@ const OVERLAYS = `
         <div class="drawer__foot">
           <div class="checkout__sum">
             <span>Subtotal</span><span data-co-subtotal></span>
+            <span data-co-disc-label hidden>Discount</span><span data-co-disc hidden></span>
             <span>Delivery</span><span data-co-delivery>Choose area</span>
             <strong>Total</strong><strong data-co-total></strong>
           </div>
@@ -191,7 +196,8 @@ const OVERLAYS = `
           <div class="done__items" data-done-items></div>
         </div>
         <div class="drawer__foot">
-          <button class="btn btn--solid btn--wide" data-close-bag><span>Continue shopping</span></button>
+          <a class="btn btn--ghost btn--wide" data-done-track href="track.html"><span>Track your order</span></a>
+          <button class="link-btn drawer__alt" data-close-bag>Continue shopping</button>
         </div>
       </div>
     </div>

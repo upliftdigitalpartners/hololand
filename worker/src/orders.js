@@ -20,7 +20,13 @@ export class Orders extends DurableObject {
     // Stock per product size. A size with no row is not tracked (always available).
     this.sql.exec('CREATE TABLE IF NOT EXISTS stock (product TEXT NOT NULL, size TEXT NOT NULL, qty INTEGER NOT NULL, PRIMARY KEY (product, size))');
     // What each order took from stock, so cancelling or deleting it can put it back.
-    try { this.sql.exec('ALTER TABLE orders ADD COLUMN stock_taken TEXT'); } catch { /* already there */ }
+    // Later columns: promo code + discount, and courier booking details.
+    for (const col of ['stock_taken TEXT', 'promo TEXT', 'discount INTEGER', 'courier TEXT', 'consignment_id TEXT', 'tracking_code TEXT', 'courier_status TEXT', 'courier_at INTEGER']) {
+      try { this.sql.exec(`ALTER TABLE orders ADD COLUMN ${col}`); } catch { /* already there */ }
+    }
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS promos (
+      code TEXT PRIMARY KEY, type TEXT NOT NULL, value INTEGER NOT NULL, min_total INTEGER NOT NULL DEFAULT 0,
+      expires TEXT, max_uses INTEGER, uses INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created INTEGER)`);
   }
 
   async create(o) {
@@ -35,7 +41,16 @@ export class Orders extends DurableObject {
     const items = JSON.parse(o.items);
     const short = this.shortages(items);
     if (short.length) return { soldOut: short };
+    // Promo code: checked and counted here too, so a limited code can't be over-used.
+    let discount = 0;
+    if (o.promo) {
+      const p = this.promoCheck(o.promo, o.subtotal, o.ts);
+      if (!p.ok) return { promoError: p.message };
+      discount = p.discount;
+    }
+    const total = o.subtotal - discount + o.delivery;
     const taken = this.take(items);
+    if (o.promo) this.sql.exec('UPDATE promos SET uses = uses + 1 WHERE code = ?', o.promo);
     const day = dayOf(o.ts);
     const prefix = `HL-${day.slice(2).replace(/-/g, '')}-`;
     // Per-day counter that only goes up, so a deleted order's number is never reused.
@@ -46,11 +61,11 @@ export class Orders extends DurableObject {
       id = `${prefix}${String(n).padStart(3, '0')}`;
     } while (this.sql.exec('SELECT 1 FROM orders WHERE id = ?', id).toArray().length);
     this.sql.exec(
-      `INSERT INTO orders (id, ts, status, name, phone, area, address, payment, note, gift, items, subtotal, delivery, total, updated, stock_taken)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      id, o.ts, 'new', o.name, o.phone, o.area, o.address, o.payment, o.note, o.gift, o.items, o.subtotal, o.delivery, o.total, o.ts, JSON.stringify(taken),
+      `INSERT INTO orders (id, ts, status, name, phone, area, address, payment, note, gift, items, subtotal, delivery, total, updated, stock_taken, promo, discount)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      id, o.ts, 'new', o.name, o.phone, o.area, o.address, o.payment, o.note, o.gift, o.items, o.subtotal, o.delivery, total, o.ts, JSON.stringify(taken), o.promo || null, discount,
     );
-    return { id };
+    return { id, discount, total };
   }
 
   async list({ status = '', q = '', limit = 50, offset = 0 } = {}) {
@@ -74,13 +89,13 @@ export class Orders extends DurableObject {
   }
 
   async update(id, { status, admin_note }, now = Date.now()) {
-    const row = this.sql.exec('SELECT id, status, items, stock_taken FROM orders WHERE id = ?', id).toArray()[0];
+    const row = this.sql.exec('SELECT id, status, items, stock_taken, promo FROM orders WHERE id = ?', id).toArray()[0];
     if (!row) return null;
     if (status !== undefined && status !== row.status) {
-      // Cancelling puts the stock back; un-cancelling takes it again.
+      // Cancelling puts the stock (and the promo code use) back; un-cancelling takes them again.
       let taken = JSON.parse(row.stock_taken || '[]');
-      if (status === 'cancelled') { this.put(taken); taken = []; }
-      else if (row.status === 'cancelled') taken = this.take(JSON.parse(row.items || '[]'), true);
+      if (status === 'cancelled') { this.put(taken); taken = []; this.promoUse(row.promo, -1); }
+      else if (row.status === 'cancelled') { taken = this.take(JSON.parse(row.items || '[]'), true); this.promoUse(row.promo, 1); }
       this.sql.exec('UPDATE orders SET status = ?, stock_taken = ?, updated = ? WHERE id = ?', status, JSON.stringify(taken), now, id);
     }
     if (admin_note !== undefined) this.sql.exec('UPDATE orders SET admin_note = ?, updated = ? WHERE id = ?', admin_note, now, id);
@@ -100,10 +115,86 @@ export class Orders extends DurableObject {
   }
 
   async remove(id) {
-    const row = this.sql.exec('SELECT stock_taken FROM orders WHERE id = ?', id).toArray()[0];
+    const row = this.sql.exec('SELECT stock_taken, status, promo FROM orders WHERE id = ?', id).toArray()[0];
     if (row) this.put(JSON.parse(row.stock_taken || '[]')); // e.g. a test order
+    if (row && row.status !== 'cancelled') this.promoUse(row.promo, -1);
     this.sql.exec('DELETE FROM orders WHERE id = ?', id);
     return { ok: true };
+  }
+
+  /* ---- promo codes ---- */
+  promoUse(code, d) {
+    if (code) this.sql.exec('UPDATE promos SET uses = MAX(0, uses + ?) WHERE code = ?', d, code);
+  }
+
+  /** Is a code usable for this subtotal right now? { ok, discount, message, promo } */
+  promoCheck(code, subtotal, now = Date.now()) {
+    const p = this.sql.exec('SELECT * FROM promos WHERE code = ?', code).toArray()[0];
+    if (!p || !p.active) return { ok: false, message: 'That promo code isn’t valid.' };
+    if (p.expires && dayOf(now) > p.expires) return { ok: false, message: 'That promo code has expired.' };
+    if (p.max_uses && p.uses >= p.max_uses) return { ok: false, message: 'That promo code has been fully used.' };
+    if (subtotal < p.min_total) return { ok: false, message: `This code needs an order of at least ৳${p.min_total.toLocaleString('en-IN')}.` };
+    const discount = p.type === 'percent' ? Math.round((subtotal * p.value) / 100) : Math.min(p.value, subtotal);
+    return { ok: true, discount, promo: { code: p.code, type: p.type, value: p.value } };
+  }
+
+  async checkPromo(code, subtotal) { return this.promoCheck(code, subtotal); }
+
+  async listPromos() {
+    return this.sql.exec('SELECT * FROM promos ORDER BY created DESC').toArray().map((p) => ({ ...p, active: !!p.active }));
+  }
+
+  async savePromo(p, now = Date.now()) {
+    this.sql.exec(
+      `INSERT INTO promos (code, type, value, min_total, expires, max_uses, active, created) VALUES (?,?,?,?,?,?,?,?)
+       ON CONFLICT(code) DO UPDATE SET type = excluded.type, value = excluded.value, min_total = excluded.min_total,
+         expires = excluded.expires, max_uses = excluded.max_uses, active = excluded.active`,
+      p.code, p.type, p.value, p.min_total, p.expires, p.max_uses, p.active ? 1 : 0, now,
+    );
+    return this.listPromos();
+  }
+
+  async deletePromo(code) {
+    this.sql.exec('DELETE FROM promos WHERE code = ?', code);
+    return this.listPromos();
+  }
+
+  /* ---- courier + tracking ---- */
+  async getOrder(id) {
+    const r = this.sql.exec('SELECT * FROM orders WHERE id = ?', id).toArray()[0];
+    return r ? { ...r, items: JSON.parse(r.items || '[]') } : null;
+  }
+
+  async setCourier(id, f, now = Date.now()) {
+    const cur = this.sql.exec('SELECT status FROM orders WHERE id = ?', id).toArray()[0];
+    if (!cur) return null;
+    this.sql.exec(
+      `UPDATE orders SET courier = COALESCE(?, courier), consignment_id = COALESCE(?, consignment_id), tracking_code = COALESCE(?, tracking_code),
+         courier_status = COALESCE(?, courier_status), courier_at = ?, updated = ? WHERE id = ?`,
+      f.courier ?? null, f.consignment_id ?? null, f.tracking_code ?? null, f.courier_status ?? null, now, now, id,
+    );
+    // Booking a parcel marks the order shipped; the courier saying "delivered" marks it delivered.
+    const next = f.status || null;
+    if (next && next !== cur.status && cur.status !== 'cancelled') this.sql.exec('UPDATE orders SET status = ? WHERE id = ?', next, id);
+    return this.getOrder(id);
+  }
+
+  /** Orders with a parcel that isn't finished yet (for the hourly courier check). */
+  async activeParcels(limit = 40) {
+    return this.sql.exec(`SELECT id, consignment_id, courier_status FROM orders WHERE consignment_id IS NOT NULL
+      AND status = 'shipped' ORDER BY courier_at ASC LIMIT ?`, limit).toArray();
+  }
+
+  /** What a customer may see about their own order (order number + phone must both match). */
+  async publicStatus(id, phone) {
+    const r = this.sql.exec('SELECT * FROM orders WHERE id = ? AND phone = ?', id, phone).toArray()[0];
+    if (!r) return null;
+    return {
+      id: r.id, placed: r.ts, status: r.status, updated: r.updated, area: r.area, payment: r.payment,
+      items: JSON.parse(r.items || '[]').map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price })),
+      subtotal: r.subtotal, discount: r.discount || 0, delivery: r.delivery, total: r.total,
+      courier: r.courier, tracking_code: r.tracking_code, courier_status: r.courier_status,
+    };
   }
 
   /* ---- stock ---- */

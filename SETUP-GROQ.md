@@ -100,6 +100,9 @@ Publish needs a GitHub token that can only edit this one repository:
 
 - **Orders:** every order placed with the website's checkout form appears here, newest first, with the customer's name, phone, address, items and total (delivery included). Change the status (New → Confirmed → Shipped → Delivered, or Cancelled), tap **WhatsApp customer** to send a ready-made confirmation message, **Copy details** for the courier, and add private notes. The tab shows how many orders are **New** and checks for new ones every minute while it's open. Delivery charges are set under **Texts & settings → Delivery charges**.
 - **Products:** change prices right in the list, untick **Shown** to hide an item, or click **Edit** for everything else: name, colour, tags, English/বাংলা descriptions, photos (upload, reorder, remove). **✦ Write with AI** fills in the descriptions and also gives you a Facebook post, an Instagram caption and SEO text to copy. **+ New product** adds one.
+- **Promos:** create codes like `EID10` (percent or taka off, optional minimum order, last day and max uses). They work at checkout instantly, no Publish. Pause, edit or delete them any time; the list shows how often each was used. The discount comes off the items, not delivery; cancelling an order gives the use back.
+- **Courier (Steadfast):** on an order, check **Cash to collect** (the total for cash on delivery, 0 if paid by bKash) and tap **Send to Steadfast**. The parcel is booked, the order becomes *Shipped* and the tracking code appears. Status updates every hour (or tap **Refresh status**); when Steadfast delivers, the order becomes *Delivered*. Needs Step 9.
+- **Order tracking:** customers go to **hololandbd.com/track.html** (linked after ordering, in the footer and on Help), enter their order number and phone, and see Placed → Confirmed → On the way → Delivered plus the courier link. The WhatsApp message button on each order includes the tracking link.
 - **Stock:** open a product (**Products → Edit**) and type how many you have of each size under **Stock per size**, then **Save stock**. It's live in seconds, with no Publish. Every order takes stock automatically; at 0 the size is crossed out on the site, and when every size is 0 the product shows **Sold out**. Cancelling or deleting an order puts its stock back. Sizes left empty are unlimited (not tracked). Customers see “Only 2 left” when 3 or fewer remain.
 - **Categories:** add a category (e.g. *Men · Shirt*, *Women · Saree*, *Kids · Panjabi*), pick its **Section** (Men, Women, Kids or Everyone), and type its sizes (e.g. `S, M, L, XL`, `2Y, 4Y, 6Y` or `Free size`). Each category gets its own tab in the shop, a card on the home page, and its sizes on product pages; the header shows one link per section. Then put products in it from **Products → Edit → Category**. A category can only be deleted once it has no products. **Find my size** only appears for categories with a measurement chart (Men · Panjabi and Women · Knitwear).
 - **Texts & settings:** the announcement bar (e.g. "Eid sale: 15% off"), WhatsApp number, store address, opening hours, Google Maps link, social links, and the homepage and story texts.
@@ -144,6 +147,16 @@ Menu names in Meta change now and then; look for “data feed” / “scheduled 
 **Google (free listings on Google Shopping):** Merchant Center (merchants.google.com) → add **hololandbd.com** and verify it → Products → **Add products** → **Scheduled fetch** → paste the same link, daily.
 
 New photos uploaded in the admin automatically get the JPG copy the feed needs.
+
+---
+
+## Step 9: Steadfast courier (optional)
+
+1. In the Steadfast merchant panel, open **API** (or Settings → API) and copy the **API key** and **Secret key**.
+2. Cloudflare → **hololand → Settings → Variables and Secrets** (top section) → add two **Secrets**: `STEADFAST_API_KEY` and `STEADFAST_SECRET_KEY` → **Deploy**.
+3. Check: the Worker address shows `"courier": true`. The **Send to Steadfast** button now appears on orders.
+
+If Steadfast changes its API address, add a normal variable `STEADFAST_API` with the new base URL (default `https://portal.packzy.com/api/v1`).
 
 ---
 

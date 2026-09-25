@@ -238,3 +238,23 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .stockbox__foot .status { margin: 0; }
 .prow__name b.danger { font-weight: 600; }
 .feedbox .toolbar .inp { max-width: none; }
+
+/* Promo codes */
+.promoform { margin-bottom: 16px; }
+.promoform__disc { display: flex; gap: 8px; }
+.promoform__disc input { flex: 1; min-width: 0; }
+.promoform__disc select { width: auto; }
+.promolist { display: grid; gap: 8px; }
+.promorow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--ink-2); }
+.promorow > div { display: grid; gap: 3px; font-size: 13px; color: var(--cream-2); }
+.promorow strong { font-size: 16px; letter-spacing: .06em; color: var(--cream); }
+.promorow__state { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 99px; background: rgba(67,209,122,.15); color: #43d17a; font-size: 11px; font-weight: 700; }
+.promorow.is-off .promorow__state { background: var(--line); color: var(--muted); }
+.promorow.is-off strong { color: var(--muted); }
+.promorow__btns { display: flex; gap: 14px; }
+
+/* Courier on order cards */
+.ocard__courier { display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--ink); font-size: 13px; color: var(--cream-2); }
+.ocard__courier b { color: var(--cream); }
+.ocard__courier-btns { display: flex; gap: 14px; margin-top: 4px; }
+.ocard__courier--send { grid-template-columns: minmax(0, 200px) auto; align-items: end; gap: 12px; justify-content: start; }
