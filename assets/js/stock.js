@@ -8,7 +8,8 @@ const endpoint = (CONFIG.stylistEndpoint || '').replace(/\/$/, '');
 
 export function refreshStock() {
   if (!endpoint) return Promise.resolve(stock);
-  return fetch(`${endpoint}/stock`, { credentials: 'omit' })
+  // Default credentials so it reuses the <link rel=preload> in each page's head (no cookies go cross-origin either way).
+  return fetch(`${endpoint}/stock`)
     .then((r) => (r.ok ? r.json() : { stock }))
     .then((d) => { stock = d.stock || {}; return stock; })
     .catch(() => stock);

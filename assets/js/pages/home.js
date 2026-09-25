@@ -80,7 +80,7 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
   slidesEl.innerHTML = slides.map((s, i) => {
     const p = byId.get(s.id);
     return `<a class="hero__slide ${i ? '' : 'is-active'}" href="${productUrl(s.id)}" ${i ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="${esc(p ? `${p.name}, ${money(priceOf(p))}` : 'Shop')}">
-      <img src="${s.src}" alt="" decoding="async" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} /></a>`;
+      <img ${i ? `data-src="${s.src}"` : `src="${s.src}" fetchpriority="high"`} alt="" decoding="async" /></a>`;
   }).join('');
   HERO_SLIDES.length = 0; HERO_SLIDES.push(...slides);
   const INTERVAL = reduced ? 8 : 5;
@@ -93,8 +93,11 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
       el.setAttribute('aria-hidden', k === current ? 'false' : 'true');
       el.tabIndex = k === current ? 0 : -1;
     });
-    const next = els[(current + 1) % els.length]?.querySelector('img');
-    if (next) next.loading = 'eager'; // warm the next photo
+    // Photos after the first load only when needed (this one, and the next to warm it up).
+    for (const k of [current, current + 1]) {
+      const im = els[k % els.length]?.querySelector('img');
+      if (im && !im.getAttribute('src') && im.dataset.src) im.src = im.dataset.src;
+    }
     schedule();
   };
   const schedule = () => { clearTimeout(timer); if (running && slides.length > 1) timer = setTimeout(() => go(current + 1), INTERVAL * 1000); };
@@ -119,7 +122,7 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
   let seen = false;
   try { seen = sessionStorage.getItem('hl.seen') === '1'; sessionStorage.setItem('hl.seen', '1'); } catch { /* ignore */ }
   // Short loader: wait for the first photo and fonts, but never more than a moment for the fonts.
-  await Promise.all([loadHero(), Promise.race([document.fonts?.ready.catch(() => {}), new Promise((r) => setTimeout(r, 700))]), new Promise((r) => setTimeout(r, seen ? 100 : 350))]);
+  await Promise.all([loadHero(), Promise.race([document.fonts?.ready.catch(() => {}), new Promise((r) => setTimeout(r, 700))]), new Promise((r) => setTimeout(r, seen || lite ? 100 : 350))]);
   progress(1);
 
   return {
@@ -128,7 +131,10 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
       gsap.ticker.remove(counter);
       count.textContent = 100;
       fitHeroTitle();
-      const titleSplit = SplitText.create('[data-hero-title] .line', { type: 'words,chars', mask: 'words' });
+      // Screen readers read the whole title from the <h1>, not the split letters.
+      const h1 = $('[data-hero-title]');
+      h1.setAttribute('aria-label', $$('.line', h1).map((l) => l.textContent.trim()).join(' '));
+      const titleSplit = SplitText.create('[data-hero-title] .line', { type: 'words,chars', mask: 'words', aria: 'hidden' });
       const tl = gsap.timeline();
       tl.to('.loader__mark, .loader__word, .loader__count', { y: -30, opacity: 0, duration: 0.5, ease: 'power3.in', stagger: 0.05 })
         .to('.loader', { clipPath: 'inset(0 0 100% 0)', duration: 1.1, ease: 'expo.inOut' }, '-=0.1')
@@ -136,6 +142,7 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
         .from(titleSplit.chars, { yPercent: 110, duration: 1.3, stagger: 0.025, ease: 'expo.out' }, '-=0.55')
         .from('[data-hero-reveal]', { y: 26, opacity: 0, duration: 1.1, stagger: 0.08, ease: 'expo.out' }, '-=1.0')
         .from('.nav > *', { y: -30, opacity: 0, duration: 1, stagger: 0.08, ease: 'expo.out' }, '-=1.1');
+      if (lite) tl.timeScale(1.5); // phones: same entrance, quicker
       go(0);
       // Gentle fade as you scroll past (no pinning: keeps phone scrolling smooth).
       if (!lite) gsap.to('.hero__content, .hero__scroll', { y: -60, opacity: 0, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom 30%', scrub: true } });

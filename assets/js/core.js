@@ -216,7 +216,11 @@ function setupFooter() {
     const lp = new LogoParticles(canvas, { light: document.documentElement.dataset.theme !== 'dark', lite });
     gsap.to(lp.uniforms.uIntro, { value: 1, duration: 3, ease: 'power2.out' });
   }, { rootMargin: '200px' });
-  io.observe(canvas);
+  // Only after the page has loaded and gone quiet, so three.js never competes with the first paint
+  // (on short pages like Track the footer is in view straight away).
+  const start = () => (window.requestIdleCallback || setTimeout)(() => io.observe(canvas), { timeout: 1500 });
+  if (document.readyState === 'complete') start();
+  else addEventListener('load', start, { once: true });
 }
 
 /**
@@ -244,7 +248,7 @@ export async function boot(page, init) {
     setupFooter();
     if (result.intro) await result.intro();
     else {
-      gsap.from('.page-hero [data-hero-in]', { y: 40, opacity: 0, duration: 1.2, stagger: 0.08, ease: 'expo.out', delay: 0.35 });
+      gsap.from('.page-hero [data-hero-in]', { y: 40, opacity: 0, duration: lite ? 0.7 : 1.2, stagger: 0.08, ease: 'expo.out', delay: lite ? 0 : 0.35 });
       await revealCurtain();
     }
   } catch (err) {

@@ -103,7 +103,8 @@ boot('shop', async ({ products, lenis }) => {
     if (state.sort === 'high') list.sort((a, b) => priceOf(b) - priceOf(a));
     if (state.sort === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
 
-    grid.innerHTML = list.map(cardHTML).join('');
+    grid.innerHTML = list.map((p, i) => cardHTML(p, i, i < 4)).join('');
+    grid.classList.remove('is-pending');
     $('[data-empty]').hidden = list.length > 0;
     $('[data-count]').textContent = `${list.length} piece${list.length === 1 ? '' : 's'}`;
     const active = state.occ.size + state.col.size + (state.price ? 1 : 0);

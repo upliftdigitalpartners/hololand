@@ -7,7 +7,7 @@ boot('lookbook', async ({ products, gsap, ScrollTrigger }) => {
   // Every look, as a grid (also the fallback without WebGL)
   $('[data-lb-grid]').innerHTML = items.map((it, i) => `
     <a class="lb-tile ${i % 5 === 0 ? 'lb-tile--tall' : ''}" href="${productUrl(it.id)}" data-cursor="Shop">
-      <img src="${img(it.base, i % 5 === 0 ? 'lg' : 'sm')}" alt="${esc(it.p.name)}" loading="lazy" />
+      <img src="${img(it.base, i % 5 === 0 ? 'lg' : 'sm')}" alt="${esc(it.p.name)}" loading="${i < 2 ? 'eager' : 'lazy'}" />
       <span><strong>${esc(it.p.name)}</strong> ${money(priceOf(it.p))}</span>
     </a>`).join('');
   gsap.from('.lb-tile', { y: 60, opacity: 0, duration: 1, stagger: 0.04, ease: 'expo.out', scrollTrigger: { trigger: '.lb-masonry', start: 'top 85%' } });
@@ -16,7 +16,8 @@ boot('lookbook', async ({ products, gsap, ScrollTrigger }) => {
     // Phones get the photo grid only: faster, and easier to browse with a thumb.
     $('.lookbook').hidden = true;
     $('.lb-hero__scroll')?.remove();
-    $('.page-lede').textContent = 'Shot against the arches that inspired the collection. Tap any look to shop it.';
+    $('.lb-desk')?.remove();
+    $('.lb-phone')?.style.setProperty('display', 'inline');
     return;
   }
   const code = $('[data-lb-code]'), name = $('[data-lb-name]'), price = $('[data-lb-price]'), link = $('[data-lb-link]');
