@@ -160,7 +160,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .hero { position: relative; height: 100vh; height: 100svh; min-height: 620px; overflow: hidden; }
 .hero { background: radial-gradient(70% 90% at 78% 55%, #3a1518 0%, #1a0e0c 45%, var(--ink) 75%); }
 /* Product photo slideshow: an arch on the right on big screens, full-bleed on phones */
-.hero__slides { position: absolute; z-index: 1; right: max(var(--gutter), 7vw); top: calc(var(--nav-h) + 2vh); bottom: max(13vh, 112px); aspect-ratio: 2 / 3; max-width: 46vw; border-radius: 999px 999px 24px 24px; overflow: hidden; background: var(--ink-3); touch-action: pan-y; box-shadow: 0 60px 120px -40px rgba(0,0,0,.8); }
+.hero__slides { position: absolute; z-index: 1; right: max(var(--gutter), 7vw); top: calc(var(--nav-h) + 3vh); bottom: 8vh; aspect-ratio: 2 / 3; max-width: 46vw; border-radius: 999px 999px 24px 24px; overflow: hidden; background: var(--ink-3); touch-action: pan-y; box-shadow: 0 60px 120px -40px rgba(0,0,0,.8); }
 .hero__slides::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(239,231,220,.1); pointer-events: none; }
 .hero__slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.1s var(--ease), visibility 1.1s; visibility: hidden; }
 .hero__slide.is-active { opacity: 1; visibility: visible; }
@@ -185,7 +185,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
   .hero__slides { inset: 0; max-width: none; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
   .hero__slides::after { display: none; }
   .hero__shade { display: block; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to top, var(--ink) 4%, rgba(13,10,9,.82) 30%, rgba(13,10,9,.25) 58%, rgba(13,10,9,.45) 100%); }
-  .hero__content { max-width: none; right: var(--gutter); bottom: 110px; }
+  .hero__content { max-width: none; right: var(--gutter); bottom: 56px; }
   .hero__content .eyebrow { display: none; }
   .hero__title { font-size: clamp(52px, 15.5vw, 96px); margin-bottom: 18px; }
   .hero__sub { font-size: 15px; margin-bottom: 24px; }

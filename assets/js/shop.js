@@ -72,23 +72,20 @@ export function renderReviews(box, p, { max = 3 } = {}) {
 export function cardHTML(p, i = 0) {
   const alt = p.images[1];
   const out = soldOut(p);
-  const tag = out ? 'Sold out' : p.tags.includes('premium') ? 'Premium' : p.tags.includes('wedding') ? 'Wedding edit' : p.cat === 'women' ? 'Winter knit' : '';
   const r = ratingOf(p.id);
+  // Tapping the photo opens the quick view (sizes + add to bag); the name goes to the full product page.
   return `
     <article class="card ${out ? 'is-soldout' : ''}" data-id="${p.id}" style="--i:${i}">
       <div class="card__frame">
-        <a class="card__media arch" href="${productUrl(p.id)}" data-cursor="View" aria-label="${esc(p.name)}">
-          ${tag ? `<span class="card__tag">${tag}</span>` : ''}
+        <a class="card__media arch" href="${productUrl(p.id)}" data-quick="${p.id}" data-cursor="View" aria-label="${esc(p.name)}: choose size">
+          ${out ? '<span class="card__tag">Sold out</span>' : ''}
           <img src="${img(p.images[0])}" alt="${esc(p.name)}, ${esc(p.color.toLowerCase())} ${esc(p.type.toLowerCase())}" loading="lazy" />
           ${alt ? `<img class="alt" src="${img(alt)}" alt="" loading="lazy" />` : ''}
         </a>
-        ${out ? '' : `<button class="btn card__add" data-quick="${p.id}"><span>Quick add +</span></button>`}
       </div>
       <a class="card__info" href="${productUrl(p.id)}">
         <div>
-          <span class="mono">${esc(p.code)}</span>
           <h3>${esc(p.name)}</h3>
-          <span class="card__color"><i class="swatch" style="background:${safeHex(p.hex)}"></i>${esc(p.color)}</span>
           ${r ? `<span class="card__rating">${stars(r.avg)} <small>(${r.count})</small></span>` : ''}
         </div>
         <span class="card__price">${money(p.price)}</span>
@@ -125,6 +122,9 @@ export function openQuickView(id) {
     ? p.images.map((b, i) => `<button class="${i ? '' : 'is-active'}" data-thumb="${safeImg(b)}" aria-label="Image ${i + 1}"><img src="${img(b)}" alt="" /></button>`).join('')
     : '';
   qvSizer.setProduct(p);
+  const add = $('[data-qv-add]', m);
+  add.disabled = soldOut(p);
+  add.querySelector('span').textContent = add.disabled ? 'Sold out' : 'Add to bag';
   m.classList.add('is-open');
   m.setAttribute('aria-hidden', 'false');
   window.lenis?.stop();
