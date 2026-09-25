@@ -61,29 +61,6 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
   gsap.from('.teaser__fan img', { y: 80, opacity: 0, rotate: 0, stagger: 0.12, duration: 1.4, ease: 'expo.out', scrollTrigger: { trigger: '.teaser__fan', start: 'top 80%' } });
   gsap.from('.teaser__chat > *', { y: 30, opacity: 0, stagger: 0.25, duration: 1, ease: 'expo.out', scrollTrigger: { trigger: '.teaser__chat', start: 'top 80%' } });
 
-  // Marquee driven by time + scroll velocity
-  const track = $('[data-marquee]');
-  let x = 0, dir = -1;
-  if (lite) track.classList.add('is-css'); // phones: a plain CSS loop, no per-frame work
-  else gsap.ticker.add((t, dt) => {
-    const v = lenis ? lenis.velocity : 0;
-    if (Math.abs(v) > 0.5) dir = v > 0 ? -1 : 1;
-    x += dir * (0.04 + Math.min(Math.abs(v) * 0.02, 0.6)) * dt;
-    const h = track.scrollWidth / 2;
-    if (x <= -h) x += h;
-    if (x > 0) x -= h;
-    track.style.transform = `translate3d(${x}px,0,0) skewX(${gsap.utils.clamp(-8, 8, -v * 0.3)}deg)`;
-  });
-
-  // Hero
-  const heroIndex = $('[data-hero-index]'), heroCaption = $('[data-hero-caption]'), heroBar = $('[data-hero-progress]');
-  const caption = (i) => { const p = byId.get(HERO_SLIDES[i].id); return p ? `${p.code} — ${p.name}` : ''; };
-  const onSlide = (i, interval) => {
-    heroIndex.textContent = `${String(i + 1).padStart(2, '0')} / ${String(HERO_SLIDES.length).padStart(2, '0')}`;
-    gsap.to(heroCaption, { opacity: 0, y: -8, duration: 0.3, onComplete: () => { heroCaption.textContent = caption(i); gsap.to(heroCaption, { opacity: 1, y: 0, duration: 0.5 }); } });
-    gsap.fromTo(heroBar, { width: '0%' }, { width: '100%', duration: interval, ease: 'none' });
-  };
-
   // Loader progress
   const count = $('[data-count]'), bar = $('.loader__bar i');
   const shown = { v: 0 };
@@ -118,7 +95,6 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
     });
     const next = els[(current + 1) % els.length]?.querySelector('img');
     if (next) next.loading = 'eager'; // warm the next photo
-    onSlide(current, INTERVAL);
     schedule();
   };
   const schedule = () => { clearTimeout(timer); if (running && slides.length > 1) timer = setTimeout(() => go(current + 1), INTERVAL * 1000); };
@@ -142,12 +118,13 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
   // Returning visitors in the same session get a shorter loader.
   let seen = false;
   try { seen = sessionStorage.getItem('hl.seen') === '1'; sessionStorage.setItem('hl.seen', '1'); } catch { /* ignore */ }
-  await Promise.all([loadHero(), document.fonts?.ready.catch(() => {}), new Promise((r) => setTimeout(r, seen ? 200 : 900))]);
+  // Short loader: wait for the first photo and fonts, but never more than a moment for the fonts.
+  await Promise.all([loadHero(), Promise.race([document.fonts?.ready.catch(() => {}), new Promise((r) => setTimeout(r, 700))]), new Promise((r) => setTimeout(r, seen ? 100 : 350))]);
   progress(1);
 
   return {
     intro: async () => {
-      await new Promise((r) => setTimeout(r, seen ? 150 : 450));
+      await new Promise((r) => setTimeout(r, seen ? 50 : 200));
       gsap.ticker.remove(counter);
       count.textContent = 100;
       fitHeroTitle();
@@ -161,7 +138,7 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
         .from('.nav > *', { y: -30, opacity: 0, duration: 1, stagger: 0.08, ease: 'expo.out' }, '-=1.1');
       go(0);
       // Gentle fade as you scroll past (no pinning: keeps phone scrolling smooth).
-      if (!lite) gsap.to('.hero__content, .hero__meta, .hero__scroll', { y: -60, opacity: 0, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom 30%', scrub: true } });
+      if (!lite) gsap.to('.hero__content, .hero__scroll', { y: -60, opacity: 0, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom 30%', scrub: true } });
       new IntersectionObserver(([e]) => setRunning(e.isIntersecting && !document.hidden)).observe(slidesEl);
       document.addEventListener('visibilitychange', () => setRunning(!document.hidden));
     },

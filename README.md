@@ -39,7 +39,7 @@ python3 -m http.server 8000
 
 1. Merge to `main`.
 2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. The workflow in `.github/workflows/pages.yml` publishes only `index.html`, `admin.html` and `assets/`. The large originals in `/photos` are not deployed.
+3. The workflow in `.github/workflows/pages.yml` runs `scripts/build.sh`, which copies the pages and `assets/` into `_site`, bundles and minifies the JavaScript (one file per page, via esbuild) and minifies the CSS. The source files stay plain ES modules, so the site also runs unbuilt (e.g. `python3 -m http.server`). The large originals in `/photos` are not deployed.
 
 The site is live at **https://hololandbd.com** (custom domain, see below). The old `upliftdigitalpartners.github.io/hololand` address redirects there.
 

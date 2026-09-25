@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' ; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://hololand.upliftdigitalpartners.workers.dev https://api.open-meteo.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'" />
@@ -43,6 +43,7 @@
         <button class="is-active" data-tab="orders">Orders <b class="tab-badge" data-new-badge hidden></b></button>
         <button data-tab="products">Products</button>
         <button data-tab="categories">Categories</button>
+        <button data-tab="promos">Promos</button>
         <button data-tab="texts">Texts &amp; settings</button>
         <button data-tab="faq">FAQ</button>
         <button data-tab="reviews">Reviews</button>
@@ -100,6 +101,23 @@
       <p class="hint">Each category gets its own tab in the shop and its own sizes. The <strong>Section</strong> decides which menu link it appears under (Men, Women, Kids, or only under Shop for “Everyone”). After changes, click <strong>Publish</strong>.</p>
       <div data-cat-list></div>
       <button class="btn btn--ghost btn--sm" data-cat-add><span>+ Add category</span></button>
+    </section>
+
+    <!-- Promo codes -->
+    <section class="tab" data-tab-pane="promos">
+      <p class="hint">Promo codes work instantly, with no Publish needed. Customers type the code at checkout; the discount comes off the items (not delivery). Cancelling an order gives the use back.</p>
+      <form class="fgroup promoform" data-promo-form>
+        <h3>New promo code</h3>
+        <div class="grid2">
+          <label class="f"><span>Code</span><input name="code" placeholder="EID10" maxlength="20" autocapitalize="characters" required /></label>
+          <label class="f"><span>Discount</span><span class="promoform__disc"><input name="value" type="number" min="1" step="1" placeholder="10" required /><select name="type"><option value="percent">% off</option><option value="amount">৳ off</option></select></span></label>
+          <label class="f"><span>Minimum order (৳) <small>optional</small></span><input name="min_total" type="number" min="0" step="1" placeholder="0" /></label>
+          <label class="f"><span>Last day <small>optional</small></span><input name="expires" type="date" /></label>
+          <label class="f"><span>Max uses <small>optional</small></span><input name="max_uses" type="number" min="1" step="1" placeholder="Unlimited" /></label>
+        </div>
+        <div class="toolbar"><button class="btn btn--solid btn--sm"><span>Save code</span></button><span class="status" data-promo-status></span></div>
+      </form>
+      <div class="promolist" data-promo-list></div>
     </section>
 
     <section class="tab" data-tab-pane="texts">

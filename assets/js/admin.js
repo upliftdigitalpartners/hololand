@@ -107,7 +107,7 @@ async function start() {
   fillCatSelect($('[data-cat-filter]'), '', true);
   await loadStock();
   renderProducts(); renderCategories(); renderTexts(); renderFaq(); renderReviewsTab();
-  loadOrders();
+  loadCourierFlag().then(() => loadOrders());
   loadAlerts();
 }
 
@@ -443,6 +443,9 @@ document.addEventListener('click', async (e) => {
 /* ---------------- texts & settings ---------------- */
 const TEXT_FIELDS = [
   { group: 'Announcement bar', help: 'A thin orange bar at the very top of the site. Leave empty to hide it.', fields: [['settings.announcement', 'Announcement', 'e.g. Eid sale: 15% off all panjabis this week']] },
+  { group: 'Look', help: 'Colours of the website. Light is white & orange; Dark is the original black & orange. Publish to apply.', fields: [
+    ['settings.theme', 'Site theme', '', false, [['light', 'Light (white & orange)'], ['dark', 'Dark (black & orange)']]],
+  ] },
   { group: 'Contact & store', fields: [
     ['settings.whatsappNumber', 'WhatsApp number (orders go here)', '8801XXXXXXXXX'],
     ['settings.deliveryNote', 'Delivery / payment note'],
@@ -484,7 +487,9 @@ function setVal(path, v) {
 function renderTexts() {
   $('[data-texts]').innerHTML = TEXT_FIELDS.map((g) => `
     <div class="fgroup"><h3>${g.group}</h3>${g.help ? `<p>${g.help}</p>` : ''}
-      ${g.fields.map(([path, label, ph = '', long]) => `<label class="f"><span>${label}</span>${long
+      ${g.fields.map(([path, label, ph = '', long, opts]) => `<label class="f"><span>${label}</span>${opts
+        ? `<select data-path="${path}">${opts.map(([v, t]) => `<option value="${v}" ${(getVal(path) || opts[0][0]) === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`
+        : long
         ? `<textarea rows="3" data-path="${path}" placeholder="${esc(ph)}">${esc(getVal(path))}</textarea>`
         : `<input data-path="${path}" value="${esc(getVal(path))}" placeholder="${esc(ph)}" />`}</label>`).join('')}
     </div>`).join('');
@@ -800,7 +805,10 @@ function renderOrders() {
   $('[data-olist]').innerHTML = ord.list.map((o) => {
     const wa = `88${o.phone}`;
     const first = String(o.name || '').split(' ')[0];
-    const confirmMsg = `Assalamu alaikum ${first}! This is Hololand. We received your order ${o.id} (${taka(o.total)}). ${o.payment === 'bkash' ? 'Please send the payment by bKash to confirm. ' : ''}Can you confirm the delivery address: ${o.address}?`;
+    const trackUrl = `https://hololandbd.com/track.html?id=${encodeURIComponent(o.id)}`;
+    const confirmMsg = o.tracking_code
+      ? `Assalamu alaikum ${first}! Your Hololand order ${o.id} is on the way with ${o.courier} (tracking ${o.tracking_code}). Follow it here: ${trackUrl}`
+      : `Assalamu alaikum ${first}! This is Hololand. We received your order ${o.id} (${taka(o.total)}). ${o.payment === 'bkash' ? 'Please send the payment by bKash to confirm. ' : ''}Can you confirm the delivery address: ${o.address}? You can track your order here: ${trackUrl}`;
     return `<article class="ocard is-${esc(o.status)}" data-oid="${esc(o.id)}">
       <header class="ocard__head">
         <div><strong class="ocard__id">${esc(o.id)}</strong><span class="ocard__time" title="${esc(new Date(o.ts).toLocaleString('en-GB'))}">${esc(ago(o.ts))}</span></div>
@@ -820,10 +828,12 @@ function renderOrders() {
         </div>
         <div class="ocard__items">
           ${o.items.map((l) => `<span>${esc(l.code)} ${esc(l.name)} · ${esc(l.size)} × ${l.qty}</span><span>${taka(l.price * l.qty)}</span>`).join('')}
+          ${o.discount ? `<span class="muted">Promo ${esc(o.promo || '')}</span><span class="muted">−${taka(o.discount)}</span>` : ''}
           <span class="muted">Delivery</span><span class="muted">${o.delivery ? taka(o.delivery) : 'Free'}</span>
           <b>Total</b><b>${taka(o.total)}</b>
         </div>
       </div>
+      ${courierHTML(o)}
       <label class="f ocard__admin"><span>Your note (only you see this)</span><input data-onote value="${esc(o.admin_note || '')}" maxlength="500" placeholder="e.g. paid by bKash, courier tracking no." /></label>
       <footer class="ocard__foot">
         <a class="btn btn--solid btn--sm" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(confirmMsg)}" target="_blank" rel="noopener"><span>WhatsApp customer</span></a>
@@ -836,6 +846,56 @@ function renderOrders() {
 }
 
 const findOrder = (el) => ord.list.find((o) => o.id === el.closest('[data-oid]').dataset.oid);
+
+/* ---- courier (Steadfast) ---- */
+let courierOn = null; // from the Worker health check
+const SF_LABEL = { in_review: 'Booked, in review', pending: 'On the way', hold: 'On hold', delivered: 'Delivered', partial_delivered: 'Partly delivered', cancelled: 'Cancelled / returning', delivered_approval_pending: 'Delivered (pending approval)', partial_delivered_approval_pending: 'Partly delivered (pending approval)', cancelled_approval_pending: 'Cancelled (pending approval)', unknown: 'Unknown' };
+function courierHTML(o) {
+  if (o.consignment_id) {
+    const link = o.tracking_code ? `https://steadfast.com.bd/t/${encodeURIComponent(o.tracking_code)}` : '';
+    return `<div class="ocard__courier">
+      <span>📦 <b>${esc(o.courier)}</b> · ${esc(SF_LABEL[o.courier_status] || o.courier_status || 'Booked')}</span>
+      <span class="mono">Tracking ${esc(o.tracking_code || '—')} · ID ${esc(o.consignment_id)}</span>
+      <span class="ocard__courier-btns"><button class="link-btn" data-courier-refresh>Refresh status</button>${link ? `<a class="link-btn" href="${link}" target="_blank" rel="noopener">Open tracking ↗</a>` : ''}</span>
+    </div>`;
+  }
+  if (o.status === 'cancelled' || courierOn === false) return '';
+  const cod = o.payment === 'bkash' ? 0 : o.total;
+  return `<div class="ocard__courier ocard__courier--send">
+    <label class="f"><span>Cash to collect (৳)</span><input type="number" min="0" step="1" data-cod value="${cod}" /></label>
+    <button class="btn btn--ghost btn--sm" data-courier-send><span>Send to Steadfast</span></button>
+  </div>`;
+}
+async function loadCourierFlag() {
+  try { courierOn = !!(await (await fetch(API, { cache: 'no-store' })).json()).courier; } catch { courierOn = null; }
+}
+function replaceOrder(o) {
+  const i = ord.list.findIndex((x) => x.id === o.id);
+  if (i >= 0) ord.list[i] = o;
+  renderOrders();
+}
+$('[data-olist]').addEventListener('click', async (e) => {
+  const send = e.target.closest('[data-courier-send]');
+  const refresh = e.target.closest('[data-courier-refresh]');
+  if (!send && !refresh) return;
+  const o = findOrder(e.target);
+  const btn = send || refresh;
+  try {
+    if (send) {
+      const cod = Math.round(+btn.closest('.ocard').querySelector('[data-cod]').value);
+      if (!(cod >= 0)) { toast('Enter the cash to collect (0 if already paid).'); return; }
+      if (!confirm(`Book ${o.id} for ${o.name} with Steadfast, collecting ৳${cod.toLocaleString('en-IN')}?`)) return;
+    }
+    btn.disabled = true;
+    const r = await api(send ? '/admin/courier-send' : '/admin/courier-refresh', send ? { id: o.id, cod: Math.round(+btn.closest('.ocard').querySelector('[data-cod]').value) } : { id: o.id });
+    replaceOrder(r);
+    toast(send ? `Booked ✓ Tracking ${r.tracking_code || r.consignment_id}` : 'Status updated');
+    if (send) loadOrders({ quiet: true });
+  } catch (err) {
+    btn.disabled = false;
+    if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`, 6000);
+  }
+});
 
 $('[data-olist]').addEventListener('change', async (e) => {
   const sel = e.target.closest('[data-ostatus-set]');
@@ -946,6 +1006,58 @@ $('[data-alerts-body]').addEventListener('click', (e) => {
   if (e.target.closest('[data-alert-test]')) loadAlerts('test');
   const rm = e.target.closest('[data-alert-remove]');
   if (rm && confirm('Stop order alerts to this phone?')) loadAlerts('remove', { id: rm.dataset.alertRemove });
+});
+
+/* ---------------- promo codes ---------------- */
+let promoList = [];
+const promoText = (p) => (p.type === 'percent' ? `${p.value}% off` : `${taka(p.value)} off`);
+function renderPromos() {
+  const today = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+  $('[data-promo-list]').innerHTML = promoList.map((p) => {
+    const expired = p.expires && p.expires < today;
+    const used = p.max_uses && p.uses >= p.max_uses;
+    const state = !p.active ? 'Paused' : expired ? 'Expired' : used ? 'Used up' : 'Active';
+    return `<div class="promorow ${state === 'Active' ? '' : 'is-off'}" data-code="${esc(p.code)}">
+      <div><strong>${esc(p.code)}</strong> <span class="promorow__state">${state}</span>
+        <span>${esc(promoText(p))}${p.min_total ? ` · min ${taka(p.min_total)}` : ''}${p.expires ? ` · until ${esc(p.expires)}` : ''}</span>
+        <span>Used ${p.uses}${p.max_uses ? ` of ${p.max_uses}` : ''} time${p.uses === 1 ? '' : 's'}</span></div>
+      <span class="promorow__btns"><button class="link-btn" data-promo-toggle>${p.active ? 'Pause' : 'Resume'}</button><button class="link-btn" data-promo-edit>Edit</button><button class="link-btn danger" data-promo-del>Delete</button></span>
+    </div>`;
+  }).join('') || '<p class="hint">No promo codes yet.</p>';
+}
+async function promoApi(body) {
+  const r = await api('/admin/promos', body);
+  promoList = r.promos || [];
+  renderPromos();
+}
+$('[data-tab="promos"]').addEventListener('click', () => promoApi({ action: 'list' }).catch((err) => err.message !== 'Signed out' && toast(err.message)));
+$('[data-promo-form]').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.currentTarget; // (currentTarget is gone after an await)
+  const f = form.elements;
+  const el = $('[data-promo-status]');
+  status(el, 'Saving…');
+  try {
+    const existing = promoList.find((p) => p.code === f.code.value.trim().toUpperCase());
+    await promoApi({ action: 'save', promo: { code: f.code.value, type: f.type.value, value: f.value.value, min_total: f.min_total.value, expires: f.expires.value, max_uses: f.max_uses.value, active: existing ? existing.active : true } });
+    status(el, `Saved ✓ ${f.code.value.trim().toUpperCase()} works at checkout now`, 'ok');
+    form.reset();
+  } catch (err) { if (err.message !== 'Signed out') status(el, err.message, 'err'); }
+});
+$('[data-promo-list]').addEventListener('click', async (e) => {
+  const row = e.target.closest('[data-code]');
+  if (!row) return;
+  const p = promoList.find((x) => x.code === row.dataset.code);
+  try {
+    if (e.target.closest('[data-promo-toggle]')) await promoApi({ action: 'save', promo: { ...p, active: !p.active } });
+    if (e.target.closest('[data-promo-del]') && confirm(`Delete ${p.code}? Orders that used it keep their discount.`)) await promoApi({ action: 'delete', code: p.code });
+    if (e.target.closest('[data-promo-edit]')) {
+      const f = $('[data-promo-form]').elements;
+      f.code.value = p.code; f.type.value = p.type; f.value.value = p.value; f.min_total.value = p.min_total || '';
+      f.expires.value = p.expires || ''; f.max_uses.value = p.max_uses || '';
+      $('[data-promo-form]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } catch (err) { if (err.message !== 'Signed out') toast(err.message); }
 });
 
 /* ---------------- resume session ---------------- */

@@ -72,23 +72,20 @@ export function renderReviews(box, p, { max = 3 } = {}) {
 export function cardHTML(p, i = 0) {
   const alt = p.images[1];
   const out = soldOut(p);
-  const tag = out ? 'Sold out' : p.tags.includes('premium') ? 'Premium' : p.tags.includes('wedding') ? 'Wedding edit' : p.cat === 'women' ? 'Winter knit' : '';
   const r = ratingOf(p.id);
+  // Tapping the photo opens the quick view (sizes + add to bag); the name goes to the full product page.
   return `
     <article class="card ${out ? 'is-soldout' : ''}" data-id="${p.id}" style="--i:${i}">
       <div class="card__frame">
-        <a class="card__media arch" href="${productUrl(p.id)}" data-cursor="View" aria-label="${esc(p.name)}">
-          ${tag ? `<span class="card__tag">${tag}</span>` : ''}
+        <a class="card__media arch" href="${productUrl(p.id)}" data-quick="${p.id}" data-cursor="View" aria-label="${esc(p.name)}: choose size">
+          ${out ? '<span class="card__tag">Sold out</span>' : ''}
           <img src="${img(p.images[0])}" alt="${esc(p.name)}, ${esc(p.color.toLowerCase())} ${esc(p.type.toLowerCase())}" loading="lazy" />
           ${alt ? `<img class="alt" src="${img(alt)}" alt="" loading="lazy" />` : ''}
         </a>
-        ${out ? '' : `<button class="btn card__add" data-quick="${p.id}"><span>Quick add +</span></button>`}
       </div>
       <a class="card__info" href="${productUrl(p.id)}">
         <div>
-          <span class="mono">${esc(p.code)}</span>
           <h3>${esc(p.name)}</h3>
-          <span class="card__color"><i class="swatch" style="background:${safeHex(p.hex)}"></i>${esc(p.color)}</span>
           ${r ? `<span class="card__rating">${stars(r.avg)} <small>(${r.count})</small></span>` : ''}
         </div>
         <span class="card__price">${money(p.price)}</span>
@@ -125,6 +122,9 @@ export function openQuickView(id) {
     ? p.images.map((b, i) => `<button class="${i ? '' : 'is-active'}" data-thumb="${safeImg(b)}" aria-label="Image ${i + 1}"><img src="${img(b)}" alt="" /></button>`).join('')
     : '';
   qvSizer.setProduct(p);
+  const add = $('[data-qv-add]', m);
+  add.disabled = soldOut(p);
+  add.querySelector('span').textContent = add.disabled ? 'Sold out' : 'Add to bag';
   m.classList.add('is-open');
   m.setAttribute('aria-hidden', 'false');
   window.lenis?.stop();
@@ -225,16 +225,46 @@ export function normalizePhone(v) {
   return /^01[3-9]\d{8}$/.test(d) ? d : null;
 }
 
+let promo = null; // { code, type, value } once a code is applied
+const promoDiscount = (sub) => (!promo ? 0 : promo.type === 'percent' ? Math.round((sub * promo.value) / 100) : Math.min(promo.value, sub));
+
+async function applyPromo() {
+  const f = $('[data-checkout-form]');
+  const msg = $('[data-promo-msg]');
+  const code = f.elements.promo.value.trim().toUpperCase();
+  f.elements.promo.value = code;
+  if (!code) { promo = null; msg.textContent = ''; updateSummary(); return; }
+  msg.className = 'promo__msg'; msg.textContent = 'Checking…';
+  try {
+    const res = await fetch(`${CONFIG.stylistEndpoint.replace(/\/$/, '')}/promo`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, credentials: 'omit', body: JSON.stringify({ code, subtotal: bagTotal() }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || 'Couldn’t check that code.');
+    promo = { code: d.code, type: d.type, value: d.value };
+    msg.className = 'promo__msg is-ok';
+    msg.textContent = `✓ ${d.code}: ${d.type === 'percent' ? `${d.value}% off` : `${money(d.value)} off`}`;
+  } catch (err) {
+    promo = null;
+    msg.className = 'promo__msg is-err';
+    msg.textContent = err.message;
+  }
+  updateSummary();
+}
+
 function updateSummary() {
   const f = $('[data-checkout-form]');
   const sub = bagTotal();
+  const disc = promoDiscount(sub);
+  $('[data-co-disc]').textContent = `−${money(disc)}`;
+  $('[data-co-disc]').hidden = $('[data-co-disc-label]').hidden = !disc;
   const fee = deliveryFee(f.elements.area.value, sub);
   const d = delivery();
   $('[data-fee="inside"]').textContent = sub >= d.freeOver && d.freeOver ? 'Free delivery' : `${money(d.inside)} delivery`;
   $('[data-fee="outside"]').textContent = sub >= d.freeOver && d.freeOver ? 'Free delivery' : `${money(d.outside)} delivery`;
   $('[data-co-subtotal]').textContent = money(sub);
   $('[data-co-delivery]').textContent = fee == null ? 'Choose area' : fee ? money(fee) : 'Free';
-  $('[data-co-total]').textContent = money(sub + (fee || 0));
+  $('[data-co-total]').textContent = money(sub - disc + (fee || 0));
 }
 
 const REMEMBER = 'hl.customer';
@@ -284,7 +314,7 @@ async function placeOrder(e) {
   btn.disabled = true; btn.innerHTML = '<span>Placing order…</span>';
   const body = {
     name: v('name'), phone, area: f.elements.area.value, address: v('address'), payment: f.elements.payment.value,
-    note: v('note'), gift: giftNote, website: f.elements.website.value,
+    note: v('note'), gift: giftNote, website: f.elements.website.value, promo: promo?.code || '',
     items: bag.map((l) => ({ id: l.id, size: l.size, qty: l.qty })),
   };
   try {
@@ -301,7 +331,7 @@ async function placeOrder(e) {
     showDone(data, body);
     bag = []; giftNote = '';
     saveBag(); renderBag();
-    f.elements.note.value = '';
+    f.elements.note.value = ''; f.elements.promo.value = ''; promo = null; $('[data-promo-msg]').textContent = '';
   } catch (err) {
     // Show our own validation messages; anything else gets a plain apology and the WhatsApp fallback.
     coError([400, 409, 429].includes(err.status) ? err.message : 'Sorry, we couldn’t place your order right now. Please try again in a minute, or order on WhatsApp.', true);
@@ -313,7 +343,10 @@ async function placeOrder(e) {
 function showDone(data, body) {
   $('[data-done-title]').textContent = `Thank you, ${body.name.split(' ')[0]}!`;
   $('[data-done-id]').textContent = data.id;
-  $('[data-done-text]').textContent = `We’ll call or message you on ${body.phone} to confirm${body.payment === 'bkash' ? ' and send bKash payment details' : ''}. Total ${money(data.total)}${data.delivery ? ` including ${money(data.delivery)} delivery` : ' with free delivery'}.`;
+  $('[data-done-text]').textContent = `We’ll call or message you on ${body.phone} to confirm${body.payment === 'bkash' ? ' and send bKash payment details' : ''}. Total ${money(data.total)}${data.delivery ? ` including ${money(data.delivery)} delivery` : ' with free delivery'}${data.discount ? `, after ${money(data.discount)} off with ${data.promo}` : ''}.`;
+  $('[data-done-track]').href = `track.html?id=${encodeURIComponent(data.id)}`;
+  // Lets the tracking page fill in the phone for this visit only (sessionStorage, cleared when the tab closes).
+  try { sessionStorage.setItem('hl.lastOrder', JSON.stringify({ id: data.id, phone: body.phone })); } catch { /* ignore */ }
   $('[data-done-items]').innerHTML = (data.items || []).map((l) => `<span>${esc(l.name)} · ${esc(l.size)} × ${l.qty}</span><span>${money(l.price * l.qty)}</span>`).join('');
   showView('done');
 }
@@ -384,6 +417,12 @@ export function initStore(list) {
   $('[data-checkout]').addEventListener('click', checkout);
   $('[data-checkout-back]').addEventListener('click', () => showView('bag'));
   $('[data-checkout-form]').addEventListener('submit', placeOrder);
+  $('[data-promo-apply]').addEventListener('click', applyPromo);
+  $('[data-checkout-form]').elements.promo.addEventListener('input', (e) => {
+    // Editing the code un-applies it until Apply is tapped again.
+    if (promo && e.target.value.trim().toUpperCase() !== promo.code) { promo = null; $('[data-promo-msg]').textContent = ''; updateSummary(); }
+  });
+  $('[data-checkout-form]').elements.promo.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } });
   $('[data-checkout-form]').addEventListener('change', updateSummary);
   $('[data-checkout-form]').addEventListener('input', () => { if (!$('[data-co-error]').hidden) coError(''); });
 

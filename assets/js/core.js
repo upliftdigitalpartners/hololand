@@ -1,6 +1,7 @@
 // Shared boot for every page: layout, smooth scroll, cursor, bag, content,
 // weather, scroll animations and branded page transitions.
 import { CONFIG } from './config.js';
+import { loadData } from './ai.js';
 import { track } from './track.js';
 import { stockLoaded } from './stock.js';
 import { renderLayout, refreshCategoryLinks } from './layout.js';
@@ -12,6 +13,9 @@ gsap.registerPlugin(ScrollTrigger, SplitText);
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+// Theme (light by default, dark if chosen in the admin). The last one used is remembered to avoid a flash.
+try { if (localStorage.getItem('hl.theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch { /* ignore */ }
+
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
 export const webgl = (() => {
@@ -23,6 +27,7 @@ if (!webgl) document.documentElement.classList.add('no-webgl');
 export const lite = !finePointer || innerWidth < 900 || (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
 if (lite) document.documentElement.classList.add('lite');
 
+loadData('content'); // start now, in parallel with the products and stock
 export const productsReq = fetch('assets/data/products.json', { cache: 'no-cache' })
   .then((r) => r.json()).then((d) => d.products.filter((p) => !p.hidden));
 
@@ -100,9 +105,10 @@ function revealCurtain() {
   const c = $('.curtain');
   if (!c) return Promise.resolve();
   return new Promise((resolve) => {
+    const k = lite ? 0.5 : 0.75; // quicker reveal, quickest on phones
     gsap.timeline({ onComplete: resolve })
-      .to('.curtain__mark', { opacity: 0, y: -20, duration: 0.35, ease: 'power2.in' })
-      .to(c, { clipPath: 'inset(0 0 100% 0)', duration: 0.9, ease: 'expo.inOut' }, '-=0.1');
+      .to('.curtain__mark', { opacity: 0, y: -20, duration: 0.3 * k, ease: 'power2.in' })
+      .to(c, { clipPath: 'inset(0 0 100% 0)', duration: 0.9 * k, ease: 'expo.inOut' }, '-=0.05');
   });
 }
 function setupTransitions() {
@@ -110,6 +116,7 @@ function setupTransitions() {
     const a = e.target.closest('a[href]');
     if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (a.target === '_blank' || a.hasAttribute('download') || a.dataset.whatsapp !== undefined) return;
+    if (a.hasAttribute('data-quick')) return; // product photos open the quick view instead
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin) return;
     if (url.pathname === location.pathname && url.search === location.search) {
@@ -118,12 +125,13 @@ function setupTransitions() {
     }
     if (!/(\.html|\/)$/.test(url.pathname)) return;
     e.preventDefault();
-    if (reduced) { location.href = url.href; return; }
+    // Phones go straight to the next page: waiting for an animation feels slow there.
+    if (reduced || lite) { location.href = url.href; return; }
     const c = curtain();
     gsap.set('.curtain__mark', { opacity: 0, y: 20 });
     gsap.timeline({ onComplete: () => { location.href = url.href; } })
-      .fromTo(c, { clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0% 0 0 0)', duration: 0.7, ease: 'expo.inOut' })
-      .to('.curtain__mark', { opacity: 1, y: 0, duration: 0.3 }, '-=0.25');
+      .fromTo(c, { clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0% 0 0 0)', duration: 0.4, ease: 'expo.inOut' })
+      .to('.curtain__mark', { opacity: 1, y: 0, duration: 0.2 }, '-=0.15');
   });
   // Back/forward from the browser cache: make sure the curtain is lifted.
   addEventListener('pageshow', (e) => { if (e.persisted && $('.curtain')) gsap.set('.curtain', { clipPath: 'inset(0 0 100% 0)' }); });
@@ -199,7 +207,8 @@ function animations() {
 }
 
 function setupFooter() {
-  if (!webgl || lite) return;
+  // The particle logo is drawn for the dark theme.
+  if (!webgl || lite || document.documentElement.dataset.theme !== 'dark') return;
   const canvas = $('[data-logo-canvas]');
   const io = new IntersectionObserver(async ([e]) => {
     if (!e.isIntersecting) return;

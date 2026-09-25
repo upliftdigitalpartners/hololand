@@ -39,6 +39,11 @@ const cache = { at: 0, products: [], faq: [], text: '', faqText: '', ids: new Se
 const hits = new Map(); // best-effort per-IP rate limit (per Worker instance)
 
 export default {
+  // Hourly (wrangler.toml [triggers]): refresh courier status of parcels on the way.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshParcels(env).catch((err) => console.error('courier cron', err)));
+  },
+
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const allowed = allowedOrigins(env);
@@ -69,7 +74,7 @@ export default {
     }
     if (request.method === 'GET') {
       // Handy check after setup: open the Worker URL in a browser.
-      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN, feed: true }, 200, cors);
+      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN, feed: true, courier: !!(env.STEADFAST_API_KEY && env.STEADFAST_SECRET_KEY) }, 200, cors);
     }
     if (!okOrigin) return json({ error: 'origin not allowed' }, 403, cors);
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405, cors);
@@ -78,6 +83,13 @@ export default {
       // Page views and shop events: never fail loudly, never slow the page down.
       if (!(await limited(request, env.TRACK_LIMIT))) { try { await track(request, env); } catch (err) { console.error('track', err); } }
       return new Response(null, { status: 204, headers: cors });
+    }
+    if (route === 'promo' || route === 'order-status') {
+      if (await limited(request, env.AI_LIMIT)) return json({ error: 'Too many tries. Please wait a minute.' }, 429, cors);
+      try { return json(await (route === 'promo' ? checkPromo : orderStatus)(request, env, ctx), 200, cors); } catch (err) {
+        if (!err.status) console.error(route, err);
+        return json({ error: err.status ? err.message : 'Please try again in a minute.' }, err.status || 502, cors);
+      }
     }
     if (route === 'order') {
       if (await limited(request, env.ORDER_LIMIT)) return json({ error: 'Too many orders from this connection. Please wait a minute, or message us on WhatsApp.' }, 429, cors);
@@ -91,10 +103,10 @@ export default {
     if (route === 'login') {
       try { return json(await login(request, env), 200, cors); } catch (err) { return json({ error: err.message }, err.status || 400, cors); }
     }
-    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts', 'stock-set'].includes(route);
+    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts', 'stock-set', 'promos', 'courier-send', 'courier-refresh'].includes(route);
     if (admin && !(await isAdmin(request, env))) return json({ error: 'login required' }, 401, cors);
     if (!admin && !env.GROQ_API_KEY) return json({ error: 'GROQ_API_KEY is not set' }, 500, cors);
-    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts, 'stock-set': setStock };
+    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts, 'stock-set': setStock, promos, 'courier-send': courierSend, 'courier-refresh': courierRefresh };
     if (!handlers[route]) return json({ error: 'not found' }, 404, cors);
     try {
       return json(await handlers[route](request, env), 200, cors);
@@ -611,17 +623,23 @@ async function placeOrder(request, env, ctx) {
   const order = {
     ts: Date.now(), name, phone, area, address, payment,
     note: cleanText(b.note, 300), gift: cleanText(b.gift, 300),
-    items: JSON.stringify(items), subtotal, delivery: fee, total: subtotal + fee,
+    items: JSON.stringify(items), subtotal, delivery: fee,
+    promo: normalizePromo(b.promo) || null,
   };
-  const { id, duplicate, soldOut, tooMany } = await stub.create(order);
+  const { id, duplicate, soldOut, tooMany, promoError, discount = 0, total } = await stub.create(order);
+  if (promoError) throw httpError(400, `${promoError} Remove it to order without a discount.`);
   if (tooMany) throw httpError(429, 'You already have orders waiting for confirmation. We’ll call you soon; for anything urgent, message us.');
   if (soldOut) {
     const what = soldOut.map((x) => `${x.name} (size ${x.size}): ${x.left ? `only ${x.left} left` : 'sold out'}`).join('; ');
     throw Object.assign(httpError(409, `Sorry, ${what}. Please update your bag and try again.`), { soldOut });
   }
   // Phone alert to the shop (Telegram). Runs after the reply, never delays the customer.
-  if (!duplicate) ctx?.waitUntil(notifyOrder(env, stub, { ...order, id, items }).catch((err) => console.error('telegram', err)));
-  return { id, subtotal, delivery: fee, total: order.total, items };
+  if (duplicate) {
+    const ex = await stub.getOrder(id);
+    return { id, subtotal: ex.subtotal, delivery: ex.delivery, discount: ex.discount || 0, promo: ex.promo, total: ex.total, items: ex.items };
+  }
+  ctx?.waitUntil(notifyOrder(env, stub, { ...order, id, items, discount, total }).catch((err) => console.error('telegram', err)));
+  return { id, subtotal, delivery: fee, discount, promo: order.promo, total, items };
 }
 
 async function listOrders(request, env) {
@@ -674,6 +692,7 @@ function orderText(o) {
     tgEsc(o.address),
     '',
     ...o.items.map((l) => `• ${tgEsc(l.code)} ${tgEsc(l.name)} (${tgEsc(l.size)}) × ${l.qty} — ${taka(l.price * l.qty)}`),
+    ...(o.discount ? [`Promo ${tgEsc(o.promo)}: −${taka(o.discount)}`] : []),
     `Delivery ${o.delivery ? taka(o.delivery) : 'free'} · <b>Total ${taka(o.total)}</b>`,
   ];
   if (o.note) lines.push('', `📝 ${tgEsc(o.note)}`);
@@ -816,4 +835,112 @@ ${items.join('\n')}
 </channel>
 </rss>
 `;
+}
+
+/* ---------------- promo codes ---------------- */
+const normalizePromo = (v) => { const c = String(v || '').trim().toUpperCase(); return /^[A-Z0-9_-]{3,20}$/.test(c) ? c : ''; };
+
+async function checkPromo(request, env) {
+  const { code, subtotal } = await request.json().catch(() => ({}));
+  const c = normalizePromo(code);
+  if (!c) throw httpError(400, 'That promo code isn’t valid.');
+  const r = await ordersStub(env).checkPromo(c, Math.max(0, Math.round(+subtotal || 0)));
+  if (!r.ok) throw httpError(400, r.message);
+  return { code: c, discount: r.discount, type: r.promo.type, value: r.promo.value };
+}
+
+async function promos(request, env) {
+  const { action, promo = {}, code } = await request.json().catch(() => ({}));
+  const stub = ordersStub(env);
+  if (action === 'delete') return { promos: await stub.deletePromo(normalizePromo(code)) };
+  if (action === 'save') {
+    const c = normalizePromo(promo.code);
+    if (!c) throw httpError(400, 'Code: 3–20 letters or numbers (e.g. EID10).');
+    const type = promo.type === 'amount' ? 'amount' : 'percent';
+    const value = Math.round(+promo.value);
+    if (!(value >= 1) || (type === 'percent' && value > 90) || value > 100000) throw httpError(400, type === 'percent' ? 'Percent off must be 1–90.' : 'Amount off must be at least ৳1.');
+    const min = Math.max(0, Math.round(+promo.min_total || 0));
+    const expires = promo.expires && /^\d{4}-\d{2}-\d{2}$/.test(promo.expires) ? promo.expires : null;
+    const max = promo.max_uses === '' || promo.max_uses == null ? null : Math.max(1, Math.round(+promo.max_uses));
+    return { promos: await stub.savePromo({ code: c, type, value, min_total: min, expires, max_uses: max, active: promo.active !== false }) };
+  }
+  return { promos: await stub.listPromos() };
+}
+
+/* ---------------- courier (Steadfast) + order tracking ---------------- */
+const SF_DONE = { delivered: 'delivered', partial_delivered: 'delivered' };
+
+async function steadfast(env, path, body) {
+  if (!env.STEADFAST_API_KEY || !env.STEADFAST_SECRET_KEY) throw httpError(503, 'Courier is not set up: add STEADFAST_API_KEY and STEADFAST_SECRET_KEY in Cloudflare.');
+  const base = (env.STEADFAST_API || 'https://portal.packzy.com/api/v1').replace(/\/$/, '');
+  const res = await fetch(`${base}${path}`, {
+    method: body ? 'POST' : 'GET',
+    headers: { 'Api-Key': env.STEADFAST_API_KEY, 'Secret-Key': env.STEADFAST_SECRET_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || (data.status && Number(data.status) !== 200)) {
+    const detail = data.errors ? Object.values(data.errors).flat().join(' ') : data.message;
+    throw httpError(502, `Steadfast: ${detail || `error ${res.status}`}`);
+  }
+  return data;
+}
+
+async function courierSend(request, env) {
+  const { id, cod, note } = await request.json().catch(() => ({}));
+  const stub = ordersStub(env);
+  const o = await stub.getOrder(String(id || ''));
+  if (!o) throw httpError(404, 'Order not found');
+  if (o.consignment_id) throw httpError(400, `Already booked with ${o.courier} (tracking ${o.tracking_code}).`);
+  if (o.status === 'cancelled') throw httpError(400, 'This order is cancelled.');
+  const codAmount = Math.round(+cod);
+  if (!(codAmount >= 0) || codAmount > 1_000_000) throw httpError(400, 'Cash to collect must be 0 or more.');
+  const r = await steadfast(env, '/create_order', {
+    invoice: o.id, recipient_name: o.name.slice(0, 100), recipient_phone: o.phone,
+    recipient_address: `${o.address}${o.area === 'inside' && !/chittagong|chattogram|ctg|চট্টগ্রাম/i.test(o.address) ? ', Chittagong' : ''}`.slice(0, 250),
+    cod_amount: codAmount, note: cleanText(note ?? o.note, 200),
+  });
+  const c = r.consignment || {};
+  if (!c.consignment_id) throw httpError(502, 'Steadfast did not return a consignment.');
+  return stub.setCourier(o.id, { courier: 'Steadfast', consignment_id: String(c.consignment_id), tracking_code: c.tracking_code || null, courier_status: c.status || 'in_review', status: 'shipped' });
+}
+
+async function refreshOne(env, stub, o) {
+  const r = await steadfast(env, `/status_by_cid/${encodeURIComponent(o.consignment_id)}`);
+  const st = String(r.delivery_status || '').toLowerCase() || null;
+  return stub.setCourier(o.id, { courier_status: st, status: SF_DONE[st] || null });
+}
+
+async function courierRefresh(request, env) {
+  const { id } = await request.json().catch(() => ({}));
+  const stub = ordersStub(env);
+  const o = await stub.getOrder(String(id || ''));
+  if (!o?.consignment_id) throw httpError(400, 'This order has no parcel yet.');
+  return refreshOne(env, stub, o);
+}
+
+async function refreshParcels(env) {
+  if (!env.ORDERS || !env.STEADFAST_API_KEY) return;
+  const stub = ordersStub(env);
+  for (const o of await stub.activeParcels()) {
+    try { await refreshOne(env, stub, o); } catch (err) { console.error('parcel', o.id, err.message); }
+  }
+}
+
+async function orderStatus(request, env, ctx) {
+  const { id, phone } = await request.json().catch(() => ({}));
+  const oid = String(id || '').trim().toUpperCase();
+  const ph = normalizePhone(phone);
+  if (!/^HL-\d{6}-\d{3,}$/.test(oid) || !ph) throw httpError(400, 'Enter your order number (like HL-250925-001) and the phone number you ordered with.');
+  const stub = ordersStub(env);
+  let st = await stub.publicStatus(oid, ph);
+  if (!st) throw httpError(404, 'We couldn’t find that order. Check the order number and phone number.');
+  // A parcel on the way: ask the courier for news if we haven't for 30 minutes.
+  if (st.status === 'shipped' && env.STEADFAST_API_KEY) {
+    const o = await stub.getOrder(oid);
+    if (o.consignment_id && Date.now() - (o.courier_at || 0) > 30 * 60_000) {
+      try { await refreshOne(env, stub, o); st = await stub.publicStatus(oid, ph); } catch (err) { console.error('track refresh', err.message); }
+    }
+  }
+  return st;
 }

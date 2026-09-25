@@ -15,6 +15,9 @@
 - **Orders** (name, phone, address) are stored in a private Durable Object on the Worker, never in the public repo. Only the logged-in admin can list, change or delete them. The Worker re-checks every order: prices and delivery charges come from the live catalogue (not the browser), sizes and quantities are validated, repeats within 10 minutes are merged, bots are caught by a hidden field, and each visitor can send at most 8 order attempts a minute. To stop fake orders from locking up stock, an order can hold at most 30 pieces and a phone number can have at most 3 orders waiting for confirmation (“New”).
 - **Order alerts (optional)** send each new order, including the customer's name, phone and address, to the Telegram chats connected in the admin. Only someone holding a fresh one-time link from the logged-in admin can connect a chat; the bot token is a Worker secret.
 - **Stock** can only be changed by the logged-in admin; the public `/stock` endpoint only reads counts. Cancelling or deleting an order puts its stock back.
+- **Order tracking** (`track.html`) only answers when both the order number and the phone number match, and never shows the name, address or phone. Lookups are rate-limited.
+- **Promo codes** are checked and counted by the Worker when the order is saved, so the browser can't invent a discount or over-use a limited code.
+- **Courier keys** (`STEADFAST_API_KEY`, `STEADFAST_SECRET_KEY`) are Worker secrets; only the logged-in admin can book parcels.
 - **Shop feed** (`/feed.xml`) is read-only and lists only products that are shown on the website anyway.
 - **No payments on the site.** Customers pay cash on delivery or by bKash after you confirm, so no card or bKash details ever pass through it.
 

@@ -4,17 +4,18 @@
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-MQ8c7zWvrrDqg3tHO/yfLCXx0/FAat8g+0u73uTJDZI='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://hololand.upliftdigitalpartners.workers.dev https://api.open-meteo.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="robots" content="noindex" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Lookbook — The Arch Series · Hololand</title>
-  <meta name="description" content="The Hololand Autumn/Winter ’26 lookbook: panjabis and knitwear shot against the arches that inspired the collection." />
+  <title>Track your order — Hololand</title>
+  <meta name="description" content="Check the status of your Hololand order with your order number and phone number." />
   <meta name="theme-color" content="#ffffff" />
-  <meta property="og:title" content="Lookbook — The Arch Series · Hololand" />
-  <meta property="og:description" content="The Hololand Autumn/Winter ’26 lookbook: panjabis and knitwear shot against the arches that inspired the collection." />
+  <meta property="og:title" content="Track your order — Hololand" />
+  <meta property="og:description" content="Check the status of your Hololand order with your order number and phone number." />
   <meta property="og:image" content="https://hololandbd.com/assets/img/og.jpg" />
-  <meta property="og:url" content="https://hololandbd.com/lookbook.html" />
+  <meta property="og:url" content="https://hololandbd.com/track.html" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
-  <link rel="canonical" href="https://hololandbd.com/lookbook.html" />
+  <link rel="canonical" href="https://hololandbd.com/track.html" />
   <link rel="icon" type="image/png" href="assets/img/favicon.png" />
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -26,36 +27,38 @@
     { "imports": { "three": "./assets/vendor/three.min.js" } }
   </script>
 </head>
-<body class="is-loading" data-page="lookbook">
+<body class="is-loading" data-page="track">
   <div class="curtain" aria-hidden="true"><svg class="curtain__mark" viewBox="0 0 345 400"><polygon class="m-a" points="0,0 105,0 105,140 0,212" /><polygon class="m-b" points="0,245 215,98 215,300 110,300 110,400 0,400" /><rect class="m-c" x="238" y="0" width="107" height="400" /></svg></div>
-  <main class="page page--lookbook">
-    <section class="page-hero lb-hero">
-      <p class="eyebrow" data-hero-in>Lookbook — Autumn / Winter ’26</p>
-      <h1 class="page-title page-title--xl" data-hero-in>The <em>Arch</em> Series</h1>
-      <p class="page-lede" data-hero-in>Shot against the arches that inspired the collection. Scroll to turn the gallery, drag to explore, and tap any look to shop it.</p>
-      <div class="lb-hero__scroll" data-hero-in><span>Scroll</span><i></i></div>
+  <main class="page page--track">
+    <section class="page-hero page-hero--compact">
+      <nav class="crumbs" data-hero-in aria-label="Breadcrumb"><a href="./">Home</a><span>/</span><a href="help.html">Help</a><span>/</span><span>Track your order</span></nav>
+      <h1 class="page-title" data-hero-in>Track your <em>order</em></h1>
+      <p class="page-lede" data-hero-in>Enter your order number (it starts with HL-) and the phone number you ordered with.</p>
     </section>
-    <section class="lookbook" id="lookbook">
-      <div class="lookbook__pin">
-        <canvas class="lookbook__gl" data-lookbook-canvas></canvas>
-        <div class="lookbook__caption">
-          <span class="mono" data-lb-code></span>
-          <strong data-lb-name></strong>
-          <span data-lb-price></span>
-          <a class="btn btn--solid btn--sm lookbook__cta" data-lb-link href="shop.html"><span>View this piece</span></a>
+
+    <section class="track">
+      <form class="track__form" data-track-form novalidate data-hero-in>
+        <label class="cf"><span>Order number</span><input name="id" placeholder="HL-250925-001" autocapitalize="characters" autocomplete="off" maxlength="20" required /></label>
+        <label class="cf"><span>Phone number</span><input name="phone" type="tel" inputmode="tel" placeholder="01XXXXXXXXX" autocomplete="tel" maxlength="20" required /></label>
+        <button class="btn btn--solid btn--wide" data-track-go><span>Check status</span></button>
+        <p class="checkout__err" data-track-err role="alert" hidden></p>
+      </form>
+
+      <div class="track__result" data-track-result hidden aria-live="polite">
+        <div class="track__head">
+          <div><span class="mono" data-t-id></span><h2 data-t-headline></h2><p data-t-sub></p></div>
         </div>
-        <p class="lookbook__hint mono">Scroll or drag to turn · tap to view</p>
+        <ol class="track__steps" data-t-steps></ol>
+        <div class="track__courier" data-t-courier hidden></div>
+        <div class="track__items" data-t-items></div>
+        <p class="track__help">Questions about your order? <a href="help.html">Contact us</a>.</p>
       </div>
-    </section>
-    <section class="lb-all">
-      <div class="section-head"><p class="eyebrow" data-reveal>Every look</p><h2 class="h2" data-split>The full <em>series.</em></h2></div>
-      <div class="lb-masonry" data-lb-grid></div>
     </section>
   </main>
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/SplitText.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script type="module" src="assets/js/pages/lookbook.js"></script>
+  <script type="module" src="assets/js/pages/track.js"></script>
 </body>
 </html>
