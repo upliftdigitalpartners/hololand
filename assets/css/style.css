@@ -115,7 +115,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
   animation: grain 1s steps(6) infinite;
 }
 /* Lite mode (phones, low-power devices): drop the costly always-on effects */
-.lite .grain, .lite .footer__gl { display: none; }
+.lite .grain { display: none; }
 .lite .stylist__glow { animation: none; filter: none; }
 .lite .nav.is-scrolled { background: rgba(var(--bg-rgb), .94); }
 .lite .nav, .lite .card__add, .lite .card__tag, .lite .shopbar, .lite .pdp-bar, .lite .lb-tile span, .lite .modal__scrim, .lite .drawer__scrim { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
@@ -376,8 +376,9 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .footer__cols a:hover { color: var(--orange-2); }
 .footer__bottom { position: relative; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding-top: 40px; margin-top: 60px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 @media (max-width: 900px) {
-  .footer__top { min-height: 380px; align-items: flex-start; }
-  .footer__gl { width: 100%; height: 460px; opacity: .45; }
+  .footer__top { min-height: 0; align-items: flex-start; }
+  /* Phones: the 3D logo gets its own space at the top of the footer */
+  .footer__gl { position: relative; width: calc(100% + 2 * var(--gutter)); height: 300px; margin: -40px calc(-1 * var(--gutter)) 8px; opacity: 1; touch-action: pan-y; }
   .footer__cols { grid-template-columns: repeat(2, 1fr); }
 }
 

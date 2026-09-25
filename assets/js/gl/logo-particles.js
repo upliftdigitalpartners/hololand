@@ -3,6 +3,7 @@ import * as THREE from 'three';
 const vertex = /* glsl */ `
   uniform float uTime, uSize, uPixelRatio, uIntro;
   uniform vec2 uMouse;
+  uniform vec3 uHi;
   attribute float aRand;
   attribute vec3 aColor;
   varying vec3 vColor;
@@ -25,33 +26,35 @@ const vertex = /* glsl */ `
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     gl_PointSize = uSize * uPixelRatio * (1.0 + force * 1.2) / -mv.z;
     gl_Position = projectionMatrix * mv;
-    vColor = mix(aColor, vec3(1.0, 0.72, 0.45), force * 0.6);
+    vColor = mix(aColor, uHi, force * 0.6);
     vAlpha = (0.45 + 0.55 * fract(aRand * 13.7)) * intro;
   }
 `;
 
 const fragment = /* glsl */ `
   precision highp float;
+  uniform float uGlow; // 1 = glowing (dark theme), 0 = solid dots (light theme)
   varying vec3 vColor;
   varying float vAlpha;
   void main() {
     float d = length(gl_PointCoord - 0.5);
     float a = smoothstep(0.5, 0.05, d) * vAlpha;
     if (a < 0.01) discard;
-    gl_FragColor = vec4(vColor * a, a);
+    gl_FragColor = uGlow > 0.5 ? vec4(vColor * a, a) : vec4(vColor, a);
   }
 `;
 
 /** Samples the Hololand mark into particles. */
-function sampleMark(stepPx = 4) {
+function sampleMark(stepPx = 4, light = false) {
   const W = 345, H = 400;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
   const poly = (pts, fill) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); };
-  poly([[0, 0], [105, 0], [105, 140], [0, 212]], '#efe7dc');
+  const base = light ? '#2a1d17' : '#efe7dc'; // dark brown on white, cream on black
+  poly([[0, 0], [105, 0], [105, 140], [0, 212]], base);
   poly([[0, 245], [215, 98], [215, 300], [110, 300], [110, 400], [0, 400]], '#ed7315');
-  g.fillStyle = '#efe7dc'; g.fillRect(238, 0, 107, 400);
+  g.fillStyle = base; g.fillRect(238, 0, 107, 400);
   const data = g.getImageData(0, 0, W, H).data;
   const pos = [], col = [], rnd = [];
   const scale = 3.2 / H;
@@ -69,17 +72,17 @@ function sampleMark(stepPx = 4) {
 }
 
 export class LogoParticles {
-  constructor(canvas) {
+  constructor(canvas, { light = false, lite = false } = {}) {
     this.canvas = canvas;
     this.visible = false;
-    this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: 'low-power' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, lite ? 1.25 : 1.75));
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
     this.camera.position.z = 6.5;
 
-    const fine = window.innerWidth > 800 ? 3 : 4;
-    const { pos, col, rnd } = sampleMark(fine);
+    const fine = lite ? 5 : window.innerWidth > 800 ? 3 : 4; // fewer particles on phones
+    const { pos, col, rnd } = sampleMark(fine, light);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('aColor', new THREE.Float32BufferAttribute(col, 3));
@@ -87,10 +90,11 @@ export class LogoParticles {
     this.uniforms = {
       uTime: { value: 0 }, uSize: { value: 26 }, uPixelRatio: { value: this.renderer.getPixelRatio() },
       uIntro: { value: 0 }, uMouse: { value: new THREE.Vector2(9, 9) },
+      uHi: { value: light ? new THREE.Color('#ed7315') : new THREE.Color(1, 0.72, 0.45) }, uGlow: { value: light ? 0 : 1 },
     };
     this.points = new THREE.Points(geo, new THREE.ShaderMaterial({
       vertexShader: vertex, fragmentShader: fragment, uniforms: this.uniforms,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false, blending: light ? THREE.NormalBlending : THREE.AdditiveBlending,
     }));
     this.scene.add(this.points);
 
