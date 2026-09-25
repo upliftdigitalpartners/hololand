@@ -473,6 +473,10 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .promo__msg { font-weight: 600; font-size: 12px; min-height: 1em; }
 .promo__msg.is-ok { color: #43d17a; }
 .promo__msg.is-err { color: #ff9a8f; }
+.eta { margin: 14px 0 0; font-size: 13px; font-weight: 600; color: var(--cream-2); }
+.eta:empty { display: none; }
+.co-eta { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--orange-2); letter-spacing: 0; }
+.co-eta:empty { display: none; }
 .checkout__privacy { margin: -4px 0 0; font-size: 12px; color: var(--muted); }
 .checkout__sum { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-bottom: 14px; font-size: 14px; color: var(--cream-2); }
 .checkout__sum strong { font-size: 17px; color: var(--cream); margin-top: 4px; }

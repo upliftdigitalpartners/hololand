@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { loadData } from './ai.js';
 import { cleanCategories } from './categories.js';
+import { eidBanner } from './delivery.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -26,7 +27,9 @@ export async function applyContent(products) {
   if (set.delivery) {
     const n = (v) => (Number.isFinite(parseInt(v, 10)) ? Math.max(0, parseInt(v, 10)) : undefined);
     CONFIG.delivery = Object.fromEntries(Object.entries({ inside: n(set.delivery.inside), outside: n(set.delivery.outside), freeOver: n(set.delivery.freeOver) }).filter(([, v]) => v !== undefined));
+    CONFIG.deliveryTimes = { insideDays: set.delivery.insideDays, outsideDays: set.delivery.outsideDays, cutoff: set.delivery.cutoff, skipFriday: set.delivery.skipFriday };
   }
+  CONFIG.eid = set.eid || {};
 
   $$('[data-content]').forEach((el) => {
     const v = texts[el.dataset.content];
@@ -45,8 +48,10 @@ export async function applyContent(products) {
     else el.textContent = count(cat);
   });
 
-  if (set.announcement && set.announcement.trim()) {
-    $('[data-announce-text]').textContent = set.announcement;
+  // Announcement bar: the admin's text and/or the Eid order-by reminder (hides itself after the last day).
+  const bar = [eidBanner(), (set.announcement || '').trim()].filter(Boolean).join('  ·  ');
+  if (bar) {
+    $('[data-announce-text]').textContent = bar;
     $('[data-announce]').hidden = false;
     document.body.classList.add('has-announce');
   }

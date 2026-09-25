@@ -471,10 +471,18 @@ const TEXT_FIELDS = [
     ['settings.store.hours', 'Opening hours', 'e.g. Sat–Thu 11am–9pm'],
     ['settings.store.mapUrl', 'Google Maps link', 'https://maps.app.goo.gl/…'],
   ] },
-  { group: 'Delivery charges', help: 'Used by the checkout form. Whole taka, numbers only. Set “Free delivery over” to 0 to never make delivery free.', fields: [
+  { group: 'Delivery', help: 'Charges are used by the checkout (whole taka; “Free delivery over” 0 = never free). Days are working days after the order is handled, shown as delivery dates on product pages and at checkout.', fields: [
     ['settings.delivery.inside', 'Inside Chittagong city (৳)', '70'],
     ['settings.delivery.outside', 'Outside Chittagong (৳)', '130'],
     ['settings.delivery.freeOver', 'Free delivery on orders over (৳)', '5000'],
+    ['settings.delivery.insideDays', 'Days to deliver inside Chittagong', '1-2'],
+    ['settings.delivery.outsideDays', 'Days to deliver outside Chittagong', '2-4'],
+    ['settings.delivery.cutoff', 'Orders after this hour go out the next day (0–24)', '17'],
+    ['settings.delivery.skipFriday', 'Skip Fridays', '', false, [['yes', 'Yes, no deliveries on Friday'], ['no', 'No, deliver on Fridays too']]],
+  ] },
+  { group: 'Eid banner', help: 'Shows “Order by … for delivery before Eid” at the top of the site until that day, then hides by itself. Leave the date empty to turn it off.', fields: [
+    ['settings.eid.date', 'Last day to order for Eid delivery', '', false, 'date'],
+    ['settings.eid.label', 'Occasion name', 'Eid'],
   ] },
   { group: 'Social links', fields: [['settings.socials.facebook', 'Facebook'], ['settings.socials.instagram', 'Instagram'], ['settings.socials.tiktok', 'TikTok']] },
   { group: 'Homepage', fields: [
@@ -505,7 +513,9 @@ function setVal(path, v) {
 function renderTexts() {
   $('[data-texts]').innerHTML = TEXT_FIELDS.map((g) => `
     <div class="fgroup"><h3>${g.group}</h3>${g.help ? `<p>${g.help}</p>` : ''}
-      ${g.fields.map(([path, label, ph = '', long, opts]) => `<label class="f"><span>${label}</span>${opts
+      ${g.fields.map(([path, label, ph = '', long, opts]) => `<label class="f"><span>${label}</span>${opts === 'date'
+        ? `<input type="date" data-path="${path}" value="${esc(getVal(path))}" />`
+        : opts
         ? `<select data-path="${path}">${opts.map(([v, t]) => `<option value="${v}" ${(getVal(path) || opts[0][0]) === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`
         : long
         ? `<textarea rows="3" data-path="${path}" placeholder="${esc(ph)}">${esc(getVal(path))}</textarea>`
@@ -902,6 +912,9 @@ function renderOrders() {
       <footer class="ocard__foot">
         <a class="btn btn--solid btn--sm" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(confirmMsg)}" target="_blank" rel="noopener"><span>WhatsApp customer</span></a>
         <a class="btn btn--ghost btn--sm" href="tel:+88${esc(o.phone)}"><span>Call</span></a>
+        ${['new', 'confirmed'].includes(o.status) && !o.consignment_id ? '<button class="link-btn" data-oedit>Edit</button>' : ''}
+        <button class="link-btn" data-oprint="invoice">🖨 Invoice</button>
+        <button class="link-btn" data-oprint="label">🏷 Label</button>
         <button class="link-btn" data-ocopy>Copy details</button>
         <button class="link-btn danger" data-odelete>Delete</button>
       </footer>
@@ -1094,13 +1107,22 @@ function renderAlerts(st) {
     <div class="toolbar">
       ${invite ? '' : '<button class="btn btn--ghost btn--sm" data-alert-code><span>+ Connect a phone</span></button>'}
       ${st.chats.length ? '<button class="btn btn--ghost btn--sm" data-alert-test><span>Send a test alert</span></button>' : ''}
-    </div>`;
+    </div>
+    ${st.chats.length ? `<div class="alerts__summary">
+      <label class="check"><input type="checkbox" data-summary-toggle ${st.summary !== false ? 'checked' : ''} /> Morning summary at 9 am (yesterday’s orders, revenue, visitors, what’s waiting, low stock)</label>
+      <button class="link-btn" data-summary-now>Send it now</button>
+    </div>` : ''}`;
 }
+$('[data-alerts-body]').addEventListener('change', (e) => {
+  const t = e.target.closest('[data-summary-toggle]');
+  if (t) loadAlerts(t.checked ? 'summary-on' : 'summary-off').then(() => toast(t.checked ? 'Morning summary on' : 'Morning summary off'));
+});
 $('[data-alerts]').addEventListener('toggle', (e) => { if (e.target.open && !alertsState) loadAlerts(); });
 $('[data-alerts-body]').addEventListener('click', (e) => {
   if (e.target.closest('[data-alert-code]')) loadAlerts('code');
   if (e.target.closest('[data-alert-connect]')) loadAlerts('connect');
   if (e.target.closest('[data-alert-test]')) loadAlerts('test');
+  if (e.target.closest('[data-summary-now]')) loadAlerts('summary-now').then(() => toast('Summary sent to Telegram'));
   const rm = e.target.closest('[data-alert-remove]');
   if (rm && confirm('Stop order alerts to this phone?')) loadAlerts('remove', { id: rm.dataset.alertRemove });
 });
@@ -1156,6 +1178,154 @@ $('[data-promo-list]').addEventListener('click', async (e) => {
     }
   } catch (err) { if (err.message !== 'Signed out') toast(err.message); }
 });
+
+/* ---- order tools: edit, print, export ---- */
+const productsAll = () => state.products?.products || [];
+function sizeOptions(pid, sel) {
+  const p = productsAll().find((x) => x.id === pid);
+  const sizes = p ? catSizes(p.cat) : [sel];
+  return [...new Set([...sizes, sel].filter(Boolean))].map((z) => `<option ${z === sel ? 'selected' : ''}>${esc(z)}</option>`).join('');
+}
+function editLineHTML(l) {
+  return `<div class="oline" data-pid="${esc(l.id)}">
+    <span class="oline__name">${esc(l.code || '')} ${esc(l.name)}</span>
+    <select data-l="size" aria-label="Size">${sizeOptions(l.id, l.size)}</select>
+    <input data-l="qty" type="number" min="1" max="10" value="${l.qty}" aria-label="Quantity" />
+    <button type="button" class="link-btn danger" data-l-remove aria-label="Remove">✕</button>
+  </div>`;
+}
+function editFormHTML(o) {
+  const opts = productsAll().filter((p) => !p.hidden).map((p) => `<option value="${esc(p.id)}">${esc(p.code)} ${esc(p.name)}</option>`).join('');
+  return `<form class="oedit" data-oedit-form>
+    <div class="grid2">
+      <label class="f"><span>Name</span><input name="name" value="${esc(o.name)}" /></label>
+      <label class="f"><span>Phone</span><input name="phone" value="${esc(o.phone)}" inputmode="tel" /></label>
+      <label class="f"><span>Area</span><select name="area"><option value="inside" ${o.area === 'inside' ? 'selected' : ''}>Inside Chittagong</option><option value="outside" ${o.area === 'outside' ? 'selected' : ''}>Outside Chittagong</option></select></label>
+      <label class="f"><span>Payment</span><select name="payment"><option value="cod" ${o.payment !== 'bkash' ? 'selected' : ''}>Cash on delivery</option><option value="bkash" ${o.payment === 'bkash' ? 'selected' : ''}>bKash</option></select></label>
+    </div>
+    <label class="f"><span>Address</span><textarea name="address" rows="2">${esc(o.address)}</textarea></label>
+    <label class="f"><span>Customer note</span><input name="note" value="${esc(o.note || '')}" /></label>
+    <div class="olines" data-olines>${o.items.map(editLineHTML).join('')}</div>
+    <div class="oline oline--add"><select data-add-pid aria-label="Add a product"><option value="">+ Add a product…</option>${opts}</select></div>
+    <p class="hint">Items already in the order keep their price; added items use today’s price. Delivery, discount, total and stock update when you save.</p>
+    <div class="toolbar"><button class="btn btn--solid btn--sm"><span>Save changes</span></button><button type="button" class="link-btn" data-oedit-cancel>Cancel</button></div>
+  </form>`;
+}
+$('[data-olist]').addEventListener('click', async (e) => {
+  const card = e.target.closest('[data-oid]');
+  if (!card) return;
+  if (e.target.closest('[data-oedit]')) {
+    const o = findOrder(card);
+    card.querySelector('.oedit')?.remove();
+    card.querySelector('.ocard__grid').insertAdjacentHTML('afterend', editFormHTML(o));
+    card.classList.add('is-editing');
+  }
+  if (e.target.closest('[data-oedit-cancel]')) { card.querySelector('.oedit')?.remove(); card.classList.remove('is-editing'); }
+  if (e.target.closest('[data-l-remove]')) e.target.closest('.oline').remove();
+  const pr = e.target.closest('[data-oprint]');
+  if (pr) printOrder(findOrder(card), pr.dataset.oprint);
+});
+$('[data-olist]').addEventListener('change', (e) => {
+  const add = e.target.closest('[data-add-pid]');
+  if (!add || !add.value) return;
+  const p = productsAll().find((x) => x.id === add.value);
+  const lines = add.closest('form').querySelector('[data-olines]');
+  lines.insertAdjacentHTML('beforeend', editLineHTML({ id: p.id, code: p.code, name: p.name, size: catSizes(p.cat)[0], qty: 1 }));
+  add.value = '';
+});
+$('[data-olist]').addEventListener('submit', async (e) => {
+  const form = e.target.closest('[data-oedit-form]');
+  if (!form) return;
+  e.preventDefault();
+  const o = findOrder(form);
+  const f = form.elements;
+  const items = [...form.querySelectorAll('[data-olines] .oline')].map((row) => ({ id: row.dataset.pid, size: row.querySelector('[data-l="size"]').value, qty: +row.querySelector('[data-l="qty"]').value }));
+  const btn = form.querySelector('.btn--solid');
+  btn.disabled = true;
+  try {
+    const updated = await api('/admin/order-edit', { id: o.id, name: f.name.value, phone: f.phone.value, area: f.area.value, payment: f.payment.value, address: f.address.value, note: f.note.value, items });
+    replaceOrder(updated);
+    toast(`${o.id} updated · total ${taka(updated.total)}`);
+  } catch (err) { btn.disabled = false; if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`, 6000); }
+});
+
+/** Printable invoice (A4) or parcel label (small / thermal). */
+function printOrder(o, kind) {
+  const set = state.content?.settings || {};
+  const store = set.store || {};
+  const shopPhone = String(set.whatsappNumber || CONFIG.whatsappNumber || '').replace(/\D/g, '');
+  const cod = o.payment === 'bkash' ? 0 : o.total;
+  const date = new Date(o.ts).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const items = o.items.map((l) => `<tr><td>${esc(l.code)} ${esc(l.name)}</td><td>${esc(l.size)}</td><td>${l.qty}</td><td>${taka(l.price)}</td><td>${taka(l.price * l.qty)}</td></tr>`).join('');
+  const sheet = $('[data-printsheet]');
+  sheet.className = `printsheet printsheet--${kind}`;
+  sheet.innerHTML = kind === 'label' ? `
+    <div class="pl">
+      <div class="pl__from"><b>HOLOLAND</b> · ${esc(store.address || 'Chittagong')}${shopPhone ? ` · +${esc(shopPhone)}` : ''}</div>
+      <div class="pl__to">
+        <small>Deliver to</small>
+        <b class="pl__name">${esc(o.name)}</b>
+        <b class="pl__phone">${esc(o.phone)}</b>
+        <div class="pl__addr">${esc(o.address)}</div>
+        <div>${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'}</div>
+      </div>
+      <div class="pl__cod"><small>${cod ? 'Collect cash' : 'Paid (bKash)'}</small><b>${cod ? taka(cod) : '৳0'}</b></div>
+      <div class="pl__meta"><b>${esc(o.id)}</b>${o.tracking_code ? ` · ${esc(o.courier)} ${esc(o.tracking_code)}` : ''}</div>
+      <div class="pl__items">${o.items.map((l) => `${esc(l.code)} ${esc(l.name)} (${esc(l.size)}) ×${l.qty}`).join('<br>')}</div>
+      ${o.note ? `<div class="pl__note">Note: ${esc(o.note)}</div>` : ''}
+    </div>` : `
+    <div class="pi">
+      <header class="pi__head">
+        <div><img src="assets/img/logo-black.png" alt="Hololand" class="pi__logo" /><div class="pi__shop">${esc(store.address || 'Chittagong, Bangladesh')}${shopPhone ? `<br>WhatsApp +${esc(shopPhone)}` : ''}<br>hololandbd.com</div></div>
+        <div class="pi__title"><h1>Invoice</h1><div>${esc(o.id)}</div><div>${esc(date)}</div></div>
+      </header>
+      <section class="pi__to"><small>Bill to</small><b>${esc(o.name)}</b><div>${esc(o.phone)}</div><div>${esc(o.address)}</div><div>${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'}</div></section>
+      <table class="pi__items"><thead><tr><th>Item</th><th>Size</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead><tbody>${items}</tbody></table>
+      <table class="pi__sum">
+        <tr><td>Subtotal</td><td>${taka(o.subtotal)}</td></tr>
+        ${o.discount ? `<tr><td>Discount${o.promo ? ` (${esc(o.promo)})` : ''}</td><td>−${taka(o.discount)}</td></tr>` : ''}
+        <tr><td>Delivery</td><td>${o.delivery ? taka(o.delivery) : 'Free'}</td></tr>
+        <tr class="pi__total"><td>Total</td><td>${taka(o.total)}</td></tr>
+        <tr><td>Payment</td><td>${o.payment === 'bkash' ? 'bKash' : 'Cash on delivery'}</td></tr>
+        <tr><td><b>${cod ? 'Cash to collect' : 'Balance due'}</b></td><td><b>${taka(cod)}</b></td></tr>
+      </table>
+      ${o.note ? `<p class="pi__note">Note: ${esc(o.note)}</p>` : ''}
+      ${o.tracking_code ? `<p class="pi__note">Courier: ${esc(o.courier)} · Tracking ${esc(o.tracking_code)}</p>` : ''}
+      <footer class="pi__foot">Thank you for shopping with Hololand! Exchanges within 7 days with the tag attached. Track your order at hololandbd.com/track.html</footer>
+    </div>`;
+  const img = sheet.querySelector('img');
+  const go = () => setTimeout(() => window.print(), 50);
+  if (img && !img.complete) { img.onload = go; img.onerror = go; } else go();
+}
+
+/* CSV export (opens in Excel, Bangla included) */
+// Text a customer typed can't start a spreadsheet formula (=, +, -, @).
+const csvCell = (v) => { let t = String(v ?? ''); if (typeof v === 'string' && /^[=+\-@\t\r]/.test(t)) t = `'${t}`; return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+$('[data-export-go]').addEventListener('click', async () => {
+  const from = $('[data-export-from]').value, to = $('[data-export-to]').value;
+  const el = $('[data-export-status]');
+  status(el, 'Preparing…');
+  try {
+    const { orders } = await api('/admin/orders-export', { from, to });
+    const head = ['Order', 'Date', 'Status', 'Name', 'Phone', 'Area', 'Address', 'Payment', 'Items', 'Pieces', 'Subtotal', 'Promo', 'Discount', 'Delivery', 'Total', 'Courier', 'Tracking', 'Customer note', 'Your note'];
+    const rows = orders.map((o) => [o.id, new Date(o.ts + 6 * 3600e3).toISOString().slice(0, 16).replace('T', ' '), STATUS[o.status] || o.status, o.name, o.phone,
+      o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong', o.address, o.payment === 'bkash' ? 'bKash' : 'Cash on delivery',
+      o.items.map((l) => `${l.code} ${l.name} (${l.size}) x${l.qty}`).join('; '), o.items.reduce((n, l) => n + l.qty, 0),
+      o.subtotal, o.promo || '', o.discount || 0, o.delivery, o.total, o.courier || '', o.tracking_code || '', o.note || '', o.admin_note || '']);
+    const csv = '﻿' + [head, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `hololand-orders-${from}-to-${to}.csv`;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    status(el, `✓ ${orders.length} order${orders.length === 1 ? '' : 's'} exported`, 'ok');
+  } catch (err) { if (err.message !== 'Signed out') status(el, err.message, 'err'); }
+});
+(() => {
+  const today = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+  $('[data-export-to]').value = today;
+  $('[data-export-from]').value = new Date(Date.now() + 6 * 3600e3 - 29 * 86400e3).toISOString().slice(0, 10);
+})();
 
 /* ---------------- resume session ---------------- */
 try {

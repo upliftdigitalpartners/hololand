@@ -41,7 +41,8 @@ const hits = new Map(); // best-effort per-IP rate limit (per Worker instance)
 export default {
   // Hourly (wrangler.toml [triggers]): refresh courier status of parcels on the way.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(refreshParcels(env).catch((err) => console.error('courier cron', err)));
+    if (event.cron === DAILY_CRON) ctx.waitUntil(dailySummary(env).catch((err) => console.error('summary cron', err)));
+    else ctx.waitUntil(refreshParcels(env).catch((err) => console.error('courier cron', err)));
   },
 
   async fetch(request, env, ctx) {
@@ -103,10 +104,10 @@ export default {
     if (route === 'login') {
       try { return json(await login(request, env), 200, cors); } catch (err) { return json({ error: err.message }, err.status || 400, cors); }
     }
-    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts', 'stock-set', 'promos', 'courier-send', 'courier-refresh', 'sales', 'phone-flag'].includes(route);
+    const admin = ['copy', 'summarize', 'load', 'publish', 'stats', 'orders', 'order-update', 'order-delete', 'alerts', 'stock-set', 'promos', 'courier-send', 'courier-refresh', 'sales', 'phone-flag', 'order-edit', 'orders-export'].includes(route);
     if (admin && !(await isAdmin(request, env))) return json({ error: 'login required' }, 401, cors);
     if (!admin && !env.GROQ_API_KEY) return json({ error: 'GROQ_API_KEY is not set' }, 500, cors);
-    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts, 'stock-set': setStock, promos, 'courier-send': courierSend, 'courier-refresh': courierRefresh, sales, 'phone-flag': phoneFlag };
+    const handlers = { chat, transcribe, size, match, gift, copy, summarize, load, publish, stats, orders: listOrders, 'order-update': updateOrder, 'order-delete': deleteOrder, alerts, 'stock-set': setStock, promos, 'courier-send': courierSend, 'courier-refresh': courierRefresh, sales, 'phone-flag': phoneFlag, 'order-edit': editOrder, 'orders-export': exportOrders };
     if (!handlers[route]) return json({ error: 'not found' }, 404, cors);
     try {
       return json(await handlers[route](request, env), 200, cors);
@@ -764,6 +765,11 @@ async function alerts(request, env) {
     chats = chats.filter((c) => String(c.id) !== String(id));
     await stub.setKV('tg_chats', chats);
   }
+  if (action === 'summary-on' || action === 'summary-off') await stub.setKV('daily_summary', action === 'summary-on');
+  if (action === 'summary-now') {
+    if (!chats.length) throw httpError(400, 'Connect a phone first.');
+    await dailySummary(env, true);
+  }
   if (action === 'test') {
     if (!chats.length) throw httpError(400, 'Connect a phone first.');
     await notifyOrder(env, stub, {
@@ -771,7 +777,7 @@ async function alerts(request, env) {
       items: [{ code: 'MP-000', name: 'Sample panjabi', size: '40', qty: 1, price: 3000 }], delivery: 70, total: 3070,
     });
   }
-  return { tokenSet: true, bot: bot.username, chats: chats.map((c) => ({ id: String(c.id), name: c.name })) };
+  return { tokenSet: true, bot: bot.username, chats: chats.map((c) => ({ id: String(c.id), name: c.name })), summary: (await stub.getKV('daily_summary')) !== false };
 }
 
 /* ---------------- stock ---------------- */
@@ -974,4 +980,82 @@ async function phoneFlag(request, env) {
   if (!ph) throw httpError(400, 'Bad phone number');
   if (![null, '', 'advance', 'block'].includes(mode ?? null)) throw httpError(400, 'Bad mode');
   return { flags: await ordersStub(env).setPhoneFlag(ph, mode || null) };
+}
+
+/* ---------------- order editing + CSV export ---------------- */
+async function editOrder(request, env) {
+  const { id, name: n, phone: ph, area: ar, address: ad, payment: pay, note, items: rawItems } = await request.json().catch(() => ({}));
+  const stub = ordersStub(env);
+  const cur = await stub.getOrder(String(id || ''));
+  if (!cur) throw httpError(404, 'Order not found');
+  const name = cleanText(n, 60), phone = normalizePhone(ph), address = cleanText(ad, 300);
+  const area = ar === 'outside' ? 'outside' : ar === 'inside' ? 'inside' : null;
+  const payment = ['cod', 'bkash'].includes(pay) ? pay : null;
+  if (name.length < 2 || !phone || !area || address.length < 8 || !payment) throw httpError(400, 'Check the name, phone (01XXXXXXXXX), area, address and payment.');
+  if (!Array.isArray(rawItems) || !rawItems.length || rawItems.length > 20) throw httpError(400, 'An order needs at least one item.');
+  const { byId, sizes, delivery } = await loadData(env);
+  const before = new Map(cur.items.map((l) => [l.id, l]));
+  const items = [];
+  for (const it of rawItems) {
+    const old = before.get(it?.id);
+    const p = byId.get(it?.id);
+    if (!p && !old) throw httpError(400, `Unknown product ${it?.id}`);
+    const size = String(it.size || '');
+    const cat = p?.cat;
+    if (cat && sizes[cat]?.length ? !sizes[cat].includes(size) : !/^[\w .+/-]{1,12}$/.test(size)) throw httpError(400, `Size ${size} isn't available for ${p?.name || old.name}.`);
+    const qty = Math.round(Number(it.qty));
+    if (!(qty >= 1 && qty <= 10)) throw httpError(400, 'Quantity must be between 1 and 10.');
+    // Items already in the order keep the price the customer was quoted; new items use today's price.
+    items.push({ id: it.id, code: old?.code || p.code, name: old?.name || p.name, size, qty, price: old ? old.price : priceOf(p) });
+  }
+  const subtotal = items.reduce((t, l) => t + l.price * l.qty, 0);
+  const fee = delivery.freeOver && subtotal >= delivery.freeOver ? 0 : delivery[area];
+  const r = await stub.editOrder(cur.id, { name, phone, area, address, payment, note: cleanText(note, 300) }, items, { subtotal, delivery: fee });
+  if (r.error) throw httpError(400, r.error);
+  if (r.soldOut) throw httpError(409, `Not enough stock: ${r.soldOut.map((x) => `${x.name} (${x.size}) has ${x.left}`).join('; ')}.`);
+  return r.order;
+}
+
+async function exportOrders(request, env) {
+  const { from, to } = await request.json().catch(() => ({}));
+  const ok = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+  if (!ok(from) || !ok(to) || from > to) throw httpError(400, 'Pick a valid date range.');
+  return { orders: await ordersStub(env).exportOrders(from, to) };
+}
+
+/* ---------------- daily Telegram summary (09:00 Bangladesh time) ---------------- */
+const DAILY_CRON = '0 3 * * *';
+async function dailySummary(env, force = false) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.ORDERS) return;
+  const stub = ordersStub(env);
+  if (!force && (await stub.getKV('daily_summary')) === false) return;
+  const chats = (await stub.getKV('tg_chats')) || [];
+  if (!chats.length) return;
+  const yesterday = dayOf(Date.now() - 86_400_000);
+  const d = await stub.daySummary(yesterday);
+  let visitors = null;
+  try { if (env.STATS) visitors = (await env.STATS.get(env.STATS.idFromName('global')).report(2)).series[0]?.visitors ?? null; } catch { /* no stats */ }
+  let names = new Map();
+  try { names = (await loadData(env)).byId; } catch { /* catalogue unavailable */ }
+  const nice = new Date(`${yesterday}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+  const lines = [
+    `☀️ <b>Good morning! Hololand yesterday (${tgEsc(nice)})</b>`,
+    '',
+    `🛍️ ${d.orders} order${d.orders === 1 ? '' : 's'} · <b>${taka(d.revenue)}</b>${d.orders ? ` · avg ${taka(Math.round(d.revenue / d.orders))}` : ''}`,
+    ...(visitors != null ? [`👀 ${visitors} visitor${visitors === 1 ? '' : 's'}${visitors && d.orders ? ` (${((d.orders / visitors) * 100).toFixed(1)}% ordered)` : ''}`] : []),
+    ...(d.best ? [`🏆 Best seller: ${tgEsc(d.best.name)} (${d.best.units})`] : []),
+    ...(d.deliveredYesterday ? [`✅ ${d.deliveredYesterday} delivered`] : []),
+    ...(d.cancelled ? [`↩️ ${d.cancelled} cancelled or returned`] : []),
+    '',
+    `<b>Waiting now:</b> ${d.waiting.new} to confirm · ${d.waiting.confirmed} to ship · ${d.waiting.shipped} on the way`,
+  ];
+  if (d.lowStock.length) {
+    lines.push('', '<b>Low stock:</b>');
+    for (const x of d.lowStock) lines.push(`• ${tgEsc(names.get(x.product)?.name || x.product)} (${tgEsc(x.size)}): ${x.qty <= 0 ? 'sold out' : `${x.qty} left`}`);
+  }
+  const link = adminLink(env);
+  await Promise.all(chats.map((c) => tg(env, 'sendMessage', {
+    chat_id: c.id, text: lines.join('\n'), parse_mode: 'HTML', disable_web_page_preview: true,
+    ...(link ? { reply_markup: { inline_keyboard: [[{ text: 'Open admin', url: link }]] } } : {}),
+  }).catch((err) => console.error('summary chat', c.id, err.message))));
 }

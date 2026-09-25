@@ -70,6 +70,14 @@
       <div class="toolbar">
         <input type="search" class="inp" placeholder="Search order no., name, phone or address…" data-order-search />
         <button class="btn btn--ghost btn--sm" data-orders-refresh><span>Refresh</span></button>
+        <details class="exportbox"><summary class="btn btn--ghost btn--sm"><span>Export to Excel</span></summary>
+          <div class="exportbox__body">
+            <label class="f"><span>From</span><input type="date" data-export-from /></label>
+            <label class="f"><span>To</span><input type="date" data-export-to /></label>
+            <button class="btn btn--solid btn--sm" data-export-go><span>Download CSV</span></button>
+            <span class="status" data-export-status></span>
+          </div>
+        </details>
         <span class="stats__updated" data-orders-updated></span>
       </div>
       <p class="status" data-orders-status></p>
@@ -226,5 +234,6 @@
 
   <div class="toast" data-toast></div>
   <script type="module" src="assets/js/admin.js"></script>
+  <div class="printsheet" data-printsheet aria-hidden="true"></div>
 </body>
 </html>
