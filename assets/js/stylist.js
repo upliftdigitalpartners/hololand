@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { money, openQuickView, recHTML } from './shop.js';
+import { money, openQuickView, recHTML, priceOf } from './shop.js';
 import { track } from './track.js';
 import { catOf } from './categories.js';
 import { endpoint, callAI, loadData, hasBangla, bnDigits } from './ai.js';
@@ -93,7 +93,7 @@ function localStylist(text) {
 
   const scored = products
     .filter((p) => !cat || [cat, 'all'].includes(catOf(p.cat).group) || p.cat === cat)
-    .filter((p) => !budget || p.price <= +budget)
+    .filter((p) => !budget || priceOf(p) <= +budget)
     .map((p) => {
       let s = Math.random() * 0.4;
       for (const i of intents) if (p.tags.includes(i)) s += 2;
@@ -124,11 +124,11 @@ function localStylist(text) {
   const lead = scored[0];
   let reply;
   if (bn) {
-    reply = `${occasion ? names[occasion][1] + ' জন্য ' : ''}আমার পছন্দ ${lead.name} (${lead.code}), ${money(lead.price)}।`;
+    reply = `${occasion ? names[occasion][1] + ' জন্য ' : ''}আমার পছন্দ ${lead.name} (${lead.code}), ${money(priceOf(lead))}।`;
     if (weather) reply += ` আজ ${CONFIG.city.name}-তে ${Math.round(weather.temp)}°C, ${cold ? 'একটু ঠান্ডা, তাই গরম কিছু ভালো লাগবে।' : 'তাই আরামদায়ক কাপড় বেছে নিয়েছি।'}`;
     reply += ' নিচে আরও কয়েকটি অপশন দিলাম। দেখতে চাইলে ট্যাপ করুন।';
   } else {
-    reply = `For ${occasion ? names[occasion][0] : 'you'}, I’d start with the ${lead.name} (${lead.code}, ${money(lead.price)}). ${lead.desc}`;
+    reply = `For ${occasion ? names[occasion][0] : 'you'}, I’d start with the ${lead.name} (${lead.code}, ${money(priceOf(lead))}). ${lead.desc}`;
     if (weather) reply += ` It’s ${Math.round(weather.temp)}°C in ${CONFIG.city.name} right now, ${cold ? 'so a warm layer makes sense.' : 'so I’ve kept things breathable.'}`;
     if (scored.length > 1) reply += ` A few more picks are below. Tap one for sizes.`;
   }

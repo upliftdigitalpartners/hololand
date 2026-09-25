@@ -1,5 +1,5 @@
 import { boot, $, $$, animateCards } from '../core.js';
-import { cardHTML, reviewsReady, esc } from '../shop.js';
+import { cardHTML, reviewsReady, esc, priceOf, onSale } from '../shop.js';
 import { categories, catOf, catTitle, GROUPS } from '../categories.js';
 
 const ALL = { title: 'The full <em>edit</em>', lede: 'Festive panjabis, soft winter knits and more, designed in Chittagong.', crumb: 'Shop', doc: 'Shop' };
@@ -39,7 +39,7 @@ boot('shop', async ({ products, lenis }) => {
     group: GROUPS[params.get('group')] && cats.some((c) => c.group === params.get('group')) ? params.get('group') : '',
     occ: new Set((params.get('occ') || '').split(',').filter((x) => OCCASIONS[x])),
     col: new Set((params.get('col') || '').split(',').filter((x) => FAMILIES[x])),
-    price: PRICES[params.get('price')] ? params.get('price') : '',
+    price: PRICES[params.get('price')] || params.get('price') === 'sale' ? params.get('price') : '',
     sort: params.get('sort') || 'featured',
   };
   // A section with a single category just shows that category.
@@ -60,6 +60,8 @@ boot('shop', async ({ products, lenis }) => {
   $('[data-f-occasion]').innerHTML = Object.entries(OCCASIONS).filter(([k]) => tagsInUse.has(k)).map(([k, v]) => `<button data-occ="${k}">${v}</button>`).join('');
   const famsInUse = new Set(fam.values());
   $('[data-f-colour]').innerHTML = Object.entries(FAMILIES).filter(([k]) => famsInUse.has(k)).map(([k, [label, c]]) => `<button data-col="${k}" title="${label}" aria-label="${label}"><i style="background:${c}"></i><span>${label}</span></button>`).join('');
+  // "On sale" appears only while something is on sale.
+  if (products.some(onSale)) PRICES.sale = ['On sale', 0, 1e9];
   $('[data-f-price]').innerHTML = Object.entries(PRICES).map(([k, [label]]) => `<button data-price="${k}">${label}</button>`).join('');
   $('[data-sort]').value = state.sort;
 
@@ -96,9 +98,9 @@ boot('shop', async ({ products, lenis }) => {
     let list = products.filter((p) => (state.cat === 'all' ? !state.group || catOf(p.cat).group === state.group : p.cat === state.cat));
     if (state.occ.size) list = list.filter((p) => p.tags.some((t) => state.occ.has(t)));
     if (state.col.size) list = list.filter((p) => state.col.has(fam.get(p.id)));
-    if (state.price) { const [, lo, hi] = PRICES[state.price]; list = list.filter((p) => p.price >= lo && p.price < hi); }
-    if (state.sort === 'low') list.sort((a, b) => a.price - b.price);
-    if (state.sort === 'high') list.sort((a, b) => b.price - a.price);
+    if (state.price && PRICES[state.price]) { const [, lo, hi] = PRICES[state.price]; list = state.price === 'sale' ? list.filter(onSale) : list.filter((p) => priceOf(p) >= lo && priceOf(p) < hi); }
+    if (state.sort === 'low') list.sort((a, b) => priceOf(a) - priceOf(b));
+    if (state.sort === 'high') list.sort((a, b) => priceOf(b) - priceOf(a));
     if (state.sort === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
 
     grid.innerHTML = list.map(cardHTML).join('');

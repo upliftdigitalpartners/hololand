@@ -1,5 +1,5 @@
 import { boot, $, $$, reduced, lite, animateCards } from '../core.js';
-import { img, cardHTML, esc, money, productUrl } from '../shop.js';
+import { img, cardHTML, esc, money, productUrl, priceOf } from '../shop.js';
 import { categories, catTitle, catUrl } from '../categories.js';
 
 // Old one-page links (hololandbd.com/#shop …) go to the new pages.
@@ -79,7 +79,7 @@ boot('home', async ({ products, gsap, SplitText, lenis }) => {
   const slidesEl = $('[data-hero-slides]');
   slidesEl.innerHTML = slides.map((s, i) => {
     const p = byId.get(s.id);
-    return `<a class="hero__slide ${i ? '' : 'is-active'}" href="${productUrl(s.id)}" ${i ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="${esc(p ? `${p.name}, ${money(p.price)}` : 'Shop')}">
+    return `<a class="hero__slide ${i ? '' : 'is-active'}" href="${productUrl(s.id)}" ${i ? 'tabindex="-1" aria-hidden="true"' : ''} aria-label="${esc(p ? `${p.name}, ${money(priceOf(p))}` : 'Shop')}">
       <img src="${s.src}" alt="" decoding="async" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} /></a>`;
   }).join('');
   HERO_SLIDES.length = 0; HERO_SLIDES.push(...slides);

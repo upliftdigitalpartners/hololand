@@ -258,3 +258,20 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .ocard__courier b { color: var(--cream); }
 .ocard__courier-btns { display: flex; gap: 14px; margin-top: 4px; }
 .ocard__courier--send { grid-template-columns: minmax(0, 200px) auto; align-items: end; gap: 12px; justify-content: start; }
+
+/* Customer history on order cards */
+.risk { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; padding: 8px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; background: var(--ink); border: 1px solid var(--line); }
+.risk select { background: transparent; color: var(--cream-2); border: 1px solid var(--line-2); border-radius: 99px; padding: 4px 8px; font: 600 12px var(--sans); }
+.risk.is-ok { border-color: rgba(67,209,122,.35); color: #7fe0a6; }
+.risk.is-new { color: var(--cream-2); }
+.risk.is-warn { border-color: rgba(237,115,21,.5); color: var(--orange-2); background: rgba(237,115,21,.08); }
+.risk.is-bad { border-color: rgba(255,122,107,.6); color: #ff9a8f; background: rgba(255,122,107,.08); }
+.ocard.is-returned { --st: #ff7a6b; opacity: .75; }
+.prow__name b.sale { color: var(--orange-2); font-weight: 600; }
+.prow__name b.muted { color: var(--muted); font-weight: 400; }
+
+/* Sales section in Stats */
+.stats__h { font-family: var(--serif); font-weight: 400; font-size: 32px; margin: 22px 0 12px; }
+.stats__h small { font-family: var(--sans); font-size: 13px; color: var(--muted); margin-left: 6px; }
+[data-sales-ranks] { margin-bottom: 8px; }
+.kpi--warn .kpi__n { color: var(--orange-2); }

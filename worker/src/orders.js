@@ -3,7 +3,10 @@
 import { DurableObject } from 'cloudflare:workers';
 import { dayOf } from './stats.js';
 
-export const ORDER_STATUSES = ['new', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+export const ORDER_STATUSES = ['new', 'confirmed', 'shipped', 'delivered', 'cancelled', 'returned'];
+// Orders in these states hold no stock and no promo use ('returned' = parcel refused / sent back).
+const OFF = new Set(['cancelled', 'returned']);
+const RETURNED_SQL = "(status = 'returned' OR courier_status IN ('cancelled', 'cancelled_approval_pending'))";
 
 export class Orders extends DurableObject {
   constructor(ctx, env) {
@@ -33,6 +36,10 @@ export class Orders extends DurableObject {
     // A double tap or a retry within 10 minutes returns the same order.
     const dup = this.sql.exec('SELECT id FROM orders WHERE phone = ? AND items = ? AND ts > ?', o.phone, o.items, o.ts - 600_000).toArray()[0];
     if (dup) return { id: dup.id, duplicate: true };
+    // Numbers the admin flagged: blocked, or allowed only with bKash advance payment.
+    const flag = ((await this.getKV('phone_flags')) || {})[o.phone];
+    if (flag === 'block') return { blocked: true };
+    if (flag === 'advance' && o.payment !== 'bkash') return { needAdvance: true };
     // Fake orders shouldn't be able to lock up stock: a phone can have at most 3 orders waiting for confirmation.
     const open = this.sql.exec("SELECT COUNT(*) AS n FROM orders WHERE phone = ? AND status = 'new'", o.phone).toArray()[0].n;
     if (open >= 3) return { tooMany: true };
@@ -81,10 +88,13 @@ export class Orders extends DurableObject {
     const rows = this.sql.exec(`SELECT * FROM orders ${w} ORDER BY ts DESC LIMIT ? OFFSET ?`, ...args, limit + 1, offset).toArray();
     const counts = Object.fromEntries(ORDER_STATUSES.map((s) => [s, 0]));
     for (const r of this.sql.exec('SELECT status, COUNT(*) AS n FROM orders GROUP BY status').toArray()) counts[r.status] = r.n;
+    const page = rows.slice(0, limit);
     return {
-      orders: rows.slice(0, limit).map((r) => ({ ...r, items: JSON.parse(r.items || '[]') })),
+      orders: page.map((r) => ({ ...r, items: JSON.parse(r.items || '[]') })),
       more: rows.length > limit,
       counts,
+      history: this.phoneHistory([...new Set(page.map((r) => r.phone))]),
+      flags: (await this.getKV('phone_flags')) || {},
     };
   }
 
@@ -94,8 +104,8 @@ export class Orders extends DurableObject {
     if (status !== undefined && status !== row.status) {
       // Cancelling puts the stock (and the promo code use) back; un-cancelling takes them again.
       let taken = JSON.parse(row.stock_taken || '[]');
-      if (status === 'cancelled') { this.put(taken); taken = []; this.promoUse(row.promo, -1); }
-      else if (row.status === 'cancelled') { taken = this.take(JSON.parse(row.items || '[]'), true); this.promoUse(row.promo, 1); }
+      if (OFF.has(status) && !OFF.has(row.status)) { this.put(taken); taken = []; this.promoUse(row.promo, -1); }
+      else if (OFF.has(row.status) && !OFF.has(status)) { taken = this.take(JSON.parse(row.items || '[]'), true); this.promoUse(row.promo, 1); }
       this.sql.exec('UPDATE orders SET status = ?, stock_taken = ?, updated = ? WHERE id = ?', status, JSON.stringify(taken), now, id);
     }
     if (admin_note !== undefined) this.sql.exec('UPDATE orders SET admin_note = ?, updated = ? WHERE id = ?', admin_note, now, id);
@@ -117,9 +127,72 @@ export class Orders extends DurableObject {
   async remove(id) {
     const row = this.sql.exec('SELECT stock_taken, status, promo FROM orders WHERE id = ?', id).toArray()[0];
     if (row) this.put(JSON.parse(row.stock_taken || '[]')); // e.g. a test order
-    if (row && row.status !== 'cancelled') this.promoUse(row.promo, -1);
+    if (row && !OFF.has(row.status)) this.promoUse(row.promo, -1);
     this.sql.exec('DELETE FROM orders WHERE id = ?', id);
     return { ok: true };
+  }
+
+  /* ---- customer history (risky customers) ---- */
+  /** { phone: { orders, delivered, returned, cancelled, open } } over all past orders. */
+  phoneHistory(phones) {
+    const out = {};
+    if (!phones.length) return out;
+    const rows = this.sql.exec(`SELECT phone, COUNT(*) AS orders,
+        SUM(status = 'delivered') AS delivered,
+        SUM(${RETURNED_SQL}) AS returned,
+        SUM(status = 'cancelled' AND NOT ${RETURNED_SQL}) AS cancelled,
+        SUM(status IN ('new', 'confirmed', 'shipped')) AS open
+      FROM orders WHERE phone IN (${phones.map(() => '?').join(',')}) GROUP BY phone`, ...phones).toArray();
+    for (const r of rows) out[r.phone] = { orders: r.orders, delivered: r.delivered, returned: r.returned, cancelled: r.cancelled, open: r.open };
+    return out;
+  }
+
+  async historyFor(phone) { return this.phoneHistory([phone])[phone] || { orders: 0, delivered: 0, returned: 0, cancelled: 0, open: 0 }; }
+
+  async setPhoneFlag(phone, mode) {
+    const flags = (await this.getKV('phone_flags')) || {};
+    if (mode === 'block' || mode === 'advance') flags[phone] = mode; else delete flags[phone];
+    await this.setKV('phone_flags', flags);
+    return flags;
+  }
+
+  /* ---- sales report ---- */
+  async salesReport(days, now = Date.now()) {
+    const since = dayOf(now - (days - 1) * 86_400_000);
+    const rows = this.sql.exec('SELECT * FROM orders WHERE ts >= ? ORDER BY ts', now - (days + 1) * 86_400_000).toArray()
+      .filter((r) => dayOf(r.ts) >= since);
+    const live = rows.filter((r) => !OFF.has(r.status));
+    const sum = (list, k) => list.reduce((n, r) => n + (r[k] || 0), 0);
+    const byDay = new Map();
+    for (let i = days - 1; i >= 0; i--) byDay.set(dayOf(now - i * 86_400_000), { orders: 0, revenue: 0 });
+    for (const r of live) { const d = byDay.get(dayOf(r.ts)); if (d) { d.orders++; d.revenue += r.total; } }
+    const products = new Map(), sizes = new Map(), pay = { cod: { orders: 0, revenue: 0 }, bkash: { orders: 0, revenue: 0 } }, promos = new Map();
+    for (const r of live) {
+      for (const l of JSON.parse(r.items || '[]')) {
+        const p = products.get(l.id) || { id: l.id, name: l.name, code: l.code, units: 0, revenue: 0 };
+        p.units += l.qty; p.revenue += l.price * l.qty; products.set(l.id, p);
+        sizes.set(l.size, (sizes.get(l.size) || 0) + l.qty);
+      }
+      const pm = pay[r.payment === 'bkash' ? 'bkash' : 'cod']; pm.orders++; pm.revenue += r.total;
+      if (r.promo) { const x = promos.get(r.promo) || { code: r.promo, orders: 0, discount: 0 }; x.orders++; x.discount += r.discount || 0; promos.set(r.promo, x); }
+    }
+    const status = Object.fromEntries(ORDER_STATUSES.map((st) => [st, rows.filter((r) => r.status === st).length]));
+    return {
+      days, since,
+      totals: {
+        orders: live.length, revenue: sum(live, 'total'), items: sum(live, 'subtotal') - sum(live, 'discount'),
+        delivery: sum(live, 'delivery'), discount: sum(live, 'discount'),
+        delivered: sum(rows.filter((r) => r.status === 'delivered'), 'total'),
+        avg: live.length ? Math.round(sum(live, 'total') / live.length) : 0,
+        all: rows.length,
+      },
+      status,
+      series: [...byDay].map(([day, d]) => ({ day, ...d })),
+      products: [...products.values()].sort((a, b) => b.units - a.units || b.revenue - a.revenue).slice(0, 8),
+      sizes: [...sizes].map(([size, units]) => ({ size, units })).sort((a, b) => b.units - a.units).slice(0, 8),
+      payment: pay,
+      promos: [...promos.values()].sort((a, b) => b.orders - a.orders),
+    };
   }
 
   /* ---- promo codes ---- */
@@ -175,7 +248,7 @@ export class Orders extends DurableObject {
     );
     // Booking a parcel marks the order shipped; the courier saying "delivered" marks it delivered.
     const next = f.status || null;
-    if (next && next !== cur.status && cur.status !== 'cancelled') this.sql.exec('UPDATE orders SET status = ? WHERE id = ?', next, id);
+    if (next && next !== cur.status && !OFF.has(cur.status)) this.sql.exec('UPDATE orders SET status = ? WHERE id = ?', next, id);
     return this.getOrder(id);
   }
 

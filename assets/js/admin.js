@@ -125,7 +125,7 @@ function renderProducts() {
   $('[data-plist]').innerHTML = list.map((p) => `
     <div class="prow ${p.hidden ? 'is-hidden' : ''}" data-id="${esc(p.id)}">
       <img src="${esc(imgSrc(p.images[0]))}" alt="" loading="lazy" />
-      <div class="prow__name"><strong>${esc(p.name)}</strong><span>${esc(p.code)} · ${esc(catName(p.cat))}${p.hidden ? ' · hidden' : ''}${stockSummary(p)}</span></div>
+      <div class="prow__name"><strong>${esc(p.name)}</strong><span>${esc(p.code)} · ${esc(catName(p.cat))}${p.hidden ? ' · hidden' : ''}${saleSummary(p)}${stockSummary(p)}</span></div>
       <label class="prow__price">৳<input type="number" min="1" value="${esc(p.price)}" data-price aria-label="Price" /></label>
       <label class="check"><input type="checkbox" data-shown ${p.hidden ? '' : 'checked'} /> Shown</label>
       <button class="btn btn--ghost btn--sm" data-edit><span>Edit</span></button>
@@ -136,7 +136,14 @@ $('[data-cat-filter]').addEventListener('change', renderProducts);
 $('[data-plist]').addEventListener('change', (e) => {
   const row = e.target.closest('[data-id]');
   const p = state.products.products.find((x) => x.id === row.dataset.id);
-  if (e.target.matches('[data-price]')) { const v = Math.round(+e.target.value); if (v > 0) { p.price = v; markDirty('products'); } }
+  if (e.target.matches('[data-price]')) {
+    const v = Math.round(+e.target.value);
+    if (v > 0) {
+      p.price = v;
+      if (p.sale_price >= v) { delete p.sale_price; delete p.sale_ends; toast('Sale removed: the sale price must be below the normal price'); renderProducts(); }
+      markDirty('products');
+    }
+  }
   if (e.target.matches('[data-shown]')) { p.hidden = !e.target.checked || undefined; if (!p.hidden) delete p.hidden; markDirty('products'); renderProducts(); }
 });
 $('[data-plist]').addEventListener('click', (e) => {
@@ -240,6 +247,14 @@ $('[data-feed-copy]').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('[data-feed-url]').value); toast('Feed link copied'); } catch { $('[data-feed-url]').select(); }
 });
 
+/* ---------------- sale prices ---------------- */
+function saleSummary(p) {
+  if (!(p.sale_price > 0 && p.sale_price < p.price)) return '';
+  const today = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+  if (p.sale_ends && p.sale_ends < today) return ` · <b class="muted">sale ended ${esc(p.sale_ends)}</b>`;
+  return ` · <b class="sale">Sale ${taka(p.sale_price)}${p.sale_ends ? ` until ${esc(p.sale_ends)}` : ''}</b>`;
+}
+
 /* ---------------- stock ---------------- */
 let stock = {};
 const catSizes = (catId) => (cats().find((c) => c.id === catId)?.sizes || []);
@@ -301,7 +316,7 @@ function openEditor(id) {
     : { id: '', code: '', name: '', cat: cats()[0].id, type: cats()[0].type || '', price: 0, color: '', hex: '#6b1b24', images: [], fabric: '', tags: [], desc: '' };
   $('[data-editor-title]').textContent = isNew ? 'New product' : `Edit ${editing.code}`;
   fillCatSelect(F('cat'), editing.cat);
-  for (const k of ['name', 'code', 'price', 'cat', 'type', 'color', 'hex', 'fabric', 'desc', 'desc_bn']) F(k).value = editing[k] ?? '';
+  for (const k of ['name', 'code', 'price', 'sale_price', 'sale_ends', 'cat', 'type', 'color', 'hex', 'fabric', 'desc', 'desc_bn']) F(k).value = editing[k] ?? '';
   F('tags').value = (editing.tags || []).join(', ');
   F('hide').checked = !!editing.hidden;
   F('code').readOnly = !isNew;
@@ -383,6 +398,9 @@ function readForm() {
   p.name = F('name').value.trim();
   p.code = F('code').value.trim().toUpperCase();
   p.price = Math.round(+F('price').value);
+  const sale = Math.round(+F('sale_price').value);
+  if (sale > 0 && sale < p.price) p.sale_price = sale; else delete p.sale_price;
+  if (p.sale_price && F('sale_ends').value) p.sale_ends = F('sale_ends').value; else delete p.sale_ends;
   p.cat = F('cat').value;
   p.type = F('type').value.trim() || cats().find((c) => c.id === p.cat)?.type || '';
   p.color = F('color').value.trim();
@@ -620,7 +638,7 @@ let statsDays = 7;
 let statsLoading = false;
 let lastStats = null;
 let resizeT;
-addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => lastStats && !$('[data-chart]').hidden && renderChart(lastStats), 150); });
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (lastStats) renderChart(lastStats); if (lastSales) renderSales(lastSales); }, 150); });
 
 async function loadStats() {
   if (statsLoading) return;
@@ -628,6 +646,7 @@ async function loadStats() {
   const el = $('[data-stats-status]');
   status(el, 'Loading…');
   try {
+    api('/admin/sales', { days: statsDays }).then(renderSales).catch((err) => { if (err.message !== 'Signed out') $('[data-sales-kpis]').innerHTML = `<p class="status err">${esc(err.message)}</p>`; });
     const r = await api('/admin/stats', { days: statsDays });
     status(el, r.totals.views ? '' : 'No visits recorded in this period yet. Counting starts from the day this feature went live.');
     renderKpis(r);
@@ -662,14 +681,12 @@ function niceMax(v) {
   return [1, 2, 2.5, 5, 10].map((m) => m * p).find((m) => m >= v);
 }
 
-function renderChart({ series, days }) {
-  const fig = $('[data-chart]');
-  fig.hidden = days < 7;
-  if (fig.hidden) return;
-  const plotEl = $('[data-chart-plot]');
-  const W = Math.max(280, plotEl.clientWidth || 720), H = W < 520 ? 200 : 260, L = 34, R = 8, T = 10, B = 26;
-  lastStats = arguments[0];
-  const max = niceMax(Math.max(...series.map((d) => d.visitors)));
+/** A column chart (one series) with tooltip and table view, drawn into a <figure> built like [data-chart]. */
+function barChart(fig, series, o) {
+  const q = (sel) => fig.querySelector(sel);
+  const plot = q('[data-chart-plot]'), tip = q('[data-chart-tip]');
+  const W = Math.max(280, plot.clientWidth || 720), H = W < 520 ? 200 : 260, L = o.axisW || 34, R = 8, T = 10, B = 26;
+  const max = niceMax(Math.max(...series.map(o.value)));
   const step = (W - L - R) / series.length;
   const bw = Math.min(48, Math.max(2, step - 2)); // 2px gap between columns
   const y = (v) => T + (H - T - B) * (1 - v / max);
@@ -682,21 +699,18 @@ function renderChart({ series, days }) {
     const r = Math.min(4, w / 2, h);
     return `<path class="chart__bar" d="M${x},${base}V${top + r}Q${x},${top} ${x + r},${top}H${x + w - r}Q${x + w},${top} ${x + w},${top + r}V${base}Z"/>`;
   };
-  $('[data-chart-sub]').textContent = `${fmtDay(series[0].day)} – ${fmtDay(series.at(-1).day)}`;
-  $('[data-chart-plot]').innerHTML = `
-    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitors per day, ${esc($('[data-chart-sub]').textContent)}">
-      ${ticks.map((v) => `<line class="chart__grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="chart__ax" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${nf.format(Math.round(v))}</text>`).join('')}
-      ${series.map((d, i) => bar(L + i * step + (step - bw) / 2, y(d.visitors), bw)).join('')}
+  q('[data-chart-sub]').textContent = `${fmtDay(series[0].day)} – ${fmtDay(series.at(-1).day)}`;
+  plot.innerHTML = `
+    <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label)}, ${esc(q('[data-chart-sub]').textContent)}">
+      ${ticks.map((v) => `<line class="chart__grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="chart__ax" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${esc(o.axis(v))}</text>`).join('')}
+      ${series.map((d, i) => bar(L + i * step + (step - bw) / 2, y(o.value(d)), bw)).join('')}
       ${series.map((d, i) => ((series.length - 1 - i) % every === 0 ? `<text class="chart__ax" x="${L + i * step + step / 2}" y="${H - 8}" text-anchor="middle">${esc(fmtDay(d.day))}</text>` : '')).join('')}
-      ${series.map((d, i) => `<rect class="chart__hit" data-i="${i}" tabindex="0" x="${L + i * step}" y="${T}" width="${step}" height="${base - T}"><title>${esc(fmtDay(d.day, true))}: ${d.visitors} visitors</title></rect>`).join('')}
+      ${series.map((d, i) => `<rect class="chart__hit" data-i="${i}" tabindex="0" x="${L + i * step}" y="${T}" width="${step}" height="${base - T}"><title>${esc(fmtDay(d.day, true))}: ${esc(o.title(d))}</title></rect>`).join('')}
     </svg>`;
-  const tip = $('[data-chart-tip]');
-  const plot = $('[data-chart-plot]');
+  const plotHover = (rect) => $$('.chart__hit', plot).forEach((r) => r.classList.toggle('is-hover', r === rect));
   const show = (rect) => {
     const d = series[+rect.dataset.i];
-    tip.innerHTML = `<b>${esc(fmtDay(d.day, true))}</b>
-      <span><i>Visitors</i>${nf.format(d.visitors)}</span><span><i>Page views</i>${nf.format(d.views)}</span>
-      <span><i>Added to bag</i>${nf.format(d.bag)}</span><span><i>Orders</i>${nf.format(d.orders)}</span>`;
+    tip.innerHTML = `<b>${esc(fmtDay(d.day, true))}</b>${o.tip(d).map(([k, v]) => `<span><i>${esc(k)}</i>${esc(v)}</span>`).join('')}`;
     tip.hidden = false;
     plotHover(rect);
     const pr = plot.getBoundingClientRect(), rr = rect.getBoundingClientRect(), fr = fig.getBoundingClientRect();
@@ -706,16 +720,63 @@ function renderChart({ series, days }) {
     tip.style.top = `${pr.top - fr.top + 4}px`;
   };
   const hide = () => { tip.hidden = true; plotHover(null); };
-  const plotHover = (rect) => $$('.chart__hit', plot).forEach((r) => r.classList.toggle('is-hover', r === rect));
   $$('.chart__hit', plot).forEach((r) => {
     r.addEventListener('pointerenter', () => show(r));
     r.addEventListener('focus', () => show(r));
     r.addEventListener('blur', hide);
   });
   plot.onpointerleave = hide;
+  q('[data-chart-table]').innerHTML = `<table class="stable"><thead><tr><th>Day</th>${o.cols.map(([h]) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>
+    ${series.slice().reverse().map((d) => `<tr><td>${esc(fmtDay(d.day, true))}</td>${o.cols.map(([, f]) => `<td>${esc(f(d))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
 
-  $('[data-chart-table]').innerHTML = `<table class="stable"><thead><tr><th>Day</th><th>Visitors</th><th>Page views</th><th>Added to bag</th><th>Orders</th><th>Chats</th></tr></thead><tbody>
-    ${series.slice().reverse().map((d) => `<tr><td>${esc(fmtDay(d.day, true))}</td><td>${d.visitors}</td><td>${d.views}</td><td>${d.bag}</td><td>${d.orders}</td><td>${d.chats}</td></tr>`).join('')}</tbody></table>`;
+function renderChart(r) {
+  const fig = $('[data-chart]');
+  fig.hidden = r.days < 7;
+  lastStats = r;
+  if (fig.hidden) return;
+  barChart(fig, r.series, {
+    label: 'Visitors per day', value: (d) => d.visitors, axis: (v) => nf.format(Math.round(v)), title: (d) => `${d.visitors} visitors`,
+    tip: (d) => [['Visitors', nf.format(d.visitors)], ['Page views', nf.format(d.views)], ['Added to bag', nf.format(d.bag)], ['Orders', nf.format(d.orders)]],
+    cols: [['Visitors', (d) => d.visitors], ['Page views', (d) => d.views], ['Added to bag', (d) => d.bag], ['Orders', (d) => d.orders], ['Chats', (d) => d.chats]],
+  });
+}
+
+/* ---- sales (from real orders) ---- */
+let lastSales = null;
+const kTaka = (v) => (v >= 1000 ? `৳${nf.format(Math.round(v / 100) / 10)}k` : `৳${Math.round(v)}`);
+function renderSales(r) {
+  lastSales = r;
+  const t = r.totals, st = r.status;
+  const done = st.delivered + st.returned;
+  const tiles = [
+    ['Revenue', taka(t.revenue), `${nf.format(t.orders)} order${t.orders === 1 ? '' : 's'} (not cancelled)`],
+    ['Average order', taka(t.avg), t.discount ? `${taka(t.discount)} given in promo discounts` : 'No promo discounts'],
+    ['Delivered', taka(t.delivered), `${st.delivered} order${st.delivered === 1 ? '' : 's'} delivered`],
+    ['Returned', `${st.returned}`, done ? `${Math.round((st.returned / done) * 100)}% of finished deliveries` : 'no finished deliveries yet', st.returned ? 'warn' : ''],
+    ['Cancelled', `${st.cancelled}`, `${st.new} new · ${st.confirmed} confirmed · ${st.shipped} on the way`],
+  ];
+  $('[data-sales-kpis]').innerHTML = tiles.map(([label, n, sub, mod]) => `
+    <div class="kpi ${mod ? `kpi--${mod}` : ''}"><span class="kpi__label">${esc(label)}</span><strong class="kpi__n">${esc(n)}</strong><span class="kpi__sub">${esc(sub)}</span></div>`).join('');
+  const fig = $('[data-sales-chart]');
+  fig.hidden = r.days < 7;
+  if (!fig.hidden) {
+    barChart(fig, r.series, {
+      label: 'Revenue per day', axisW: 46, value: (d) => d.revenue, axis: kTaka, title: (d) => `${taka(d.revenue)} from ${d.orders} orders`,
+      tip: (d) => [['Revenue', taka(d.revenue)], ['Orders', nf.format(d.orders)]],
+      cols: [['Orders', (d) => d.orders], ['Revenue', (d) => taka(d.revenue)]],
+    });
+  }
+  const list = (title, rows, empty) => `<section class="rank"><h3>${esc(title)}</h3>${rows.length ? `<ol>${rows.join('')}</ol>` : `<p class="rank__empty">${esc(empty)}</p>`}</section>`;
+  const topUnits = Math.max(1, ...r.products.map((x) => x.units));
+  const topSize = Math.max(1, ...r.sizes.map((x) => x.units));
+  const payTotal = Math.max(1, r.payment.cod.orders + r.payment.bkash.orders);
+  $('[data-sales-ranks]').innerHTML = [
+    list('Best sellers', r.products.map((x) => `<li><span class="rank__name">${esc(x.code)} ${esc(x.name)}</span><span class="rank__n">${nf.format(x.units)} <small>sold · ${taka(x.revenue)}</small></span><span class="rank__bar" style="--w:${((x.units / topUnits) * 100).toFixed(1)}%"></span></li>`), 'No orders yet'),
+    list('Sizes sold', r.sizes.map((x) => `<li><span class="rank__name">Size ${esc(x.size)}</span><span class="rank__n">${nf.format(x.units)} <small>pieces</small></span><span class="rank__bar" style="--w:${((x.units / topSize) * 100).toFixed(1)}%"></span></li>`), 'No orders yet'),
+    list('Payment', [['Cash on delivery', r.payment.cod], ['bKash', r.payment.bkash]].filter(([, v]) => v.orders).map(([k, v]) => `<li><span class="rank__name">${k}</span><span class="rank__n">${v.orders} <small>orders · ${taka(v.revenue)}</small></span><span class="rank__bar" style="--w:${((v.orders / payTotal) * 100).toFixed(1)}%"></span></li>`), 'No orders yet'),
+    list('Promo codes used', r.promos.map((x) => `<li><span class="rank__name">${esc(x.code)}</span><span class="rank__n">${x.orders} <small>orders · −${taka(x.discount)}</small></span></li>`), 'No promo codes used'),
+  ].join('');
 }
 
 function renderRanks(r) {
@@ -757,7 +818,7 @@ $('[data-tab="stats"]').addEventListener('click', loadStats);
 
 /* ---------------- orders ---------------- */
 const STATUS = {
-  new: 'New', confirmed: 'Confirmed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled',
+  new: 'New', confirmed: 'Confirmed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', returned: 'Returned',
 };
 const ord = { status: '', q: '', list: [], counts: {}, more: false, lastNew: null, loading: false };
 const taka = (n) => `${CONFIG.currency}${nf.format(n || 0)}`;
@@ -779,6 +840,8 @@ async function loadOrders({ append = false, quiet = false } = {}) {
     ord.list = append ? ord.list.concat(r.orders) : r.orders;
     ord.more = r.more;
     ord.counts = r.counts;
+    ord.history = { ...(append ? ord.history : {}), ...(r.history || {}) };
+    ord.flags = r.flags || {};
     const n = r.counts.new || 0;
     if (ord.lastNew != null && n > ord.lastNew) toast(`🛍️ ${n - ord.lastNew} new order${n - ord.lastNew > 1 ? 's' : ''}`, 5000);
     ord.lastNew = n;
@@ -818,6 +881,7 @@ function renderOrders() {
       </header>
       <div class="ocard__grid">
         <div class="ocard__cust">
+          ${riskHTML(o)}
           <b>${esc(o.name)}</b>
           <span><a href="tel:+88${esc(o.phone)}">${esc(o.phone)}</a></span>
           <span>${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'}</span>
@@ -847,6 +911,39 @@ function renderOrders() {
 
 const findOrder = (el) => ord.list.find((o) => o.id === el.closest('[data-oid]').dataset.oid);
 
+/* ---- customer history (risky customers) ---- */
+function riskHTML(o) {
+  const h = ord.history?.[o.phone] || { orders: 1, delivered: 0, returned: 0, cancelled: 0 };
+  const flag = ord.flags?.[o.phone] || '';
+  const prev = h.orders - 1;
+  let level = 'ok', text;
+  if (!prev) { level = 'new'; text = 'First order from this number'; }
+  else {
+    text = `${h.orders} orders · ${h.delivered} delivered${h.returned ? ` · ${h.returned} returned` : ''}${h.cancelled ? ` · ${h.cancelled} cancelled` : ''}`;
+    if (h.returned && h.returned >= h.delivered) level = 'bad';
+    else if (h.returned) level = 'warn';
+  }
+  if (flag) level = 'bad';
+  const icon = { ok: '✅', new: '🆕', warn: '⚠️', bad: '⛔' }[level];
+  return `<div class="risk is-${level}"><span>${icon} ${esc(text)}</span>
+    <select data-risk-flag aria-label="What to do with this number">
+      <option value="" ${!flag ? 'selected' : ''}>Allow normally</option>
+      <option value="advance" ${flag === 'advance' ? 'selected' : ''}>Require bKash advance</option>
+      <option value="block" ${flag === 'block' ? 'selected' : ''}>Block this number</option>
+    </select></div>`;
+}
+$('[data-olist]').addEventListener('change', async (e) => {
+  const sel = e.target.closest('[data-risk-flag]');
+  if (!sel) return;
+  const o = findOrder(sel);
+  try {
+    const r = await api('/admin/phone-flag', { phone: o.phone, mode: sel.value || null });
+    ord.flags = r.flags;
+    renderOrders();
+    toast(sel.value === 'block' ? `${o.phone} can no longer order online` : sel.value === 'advance' ? `${o.phone} must pay by bKash in advance` : `${o.phone} can order normally`);
+  } catch (err) { if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`); }
+});
+
 /* ---- courier (Steadfast) ---- */
 let courierOn = null; // from the Worker health check
 const SF_LABEL = { in_review: 'Booked, in review', pending: 'On the way', hold: 'On hold', delivered: 'Delivered', partial_delivered: 'Partly delivered', cancelled: 'Cancelled / returning', delivered_approval_pending: 'Delivered (pending approval)', partial_delivered_approval_pending: 'Partly delivered (pending approval)', cancelled_approval_pending: 'Cancelled (pending approval)', unknown: 'Unknown' };
@@ -859,7 +956,7 @@ function courierHTML(o) {
       <span class="ocard__courier-btns"><button class="link-btn" data-courier-refresh>Refresh status</button>${link ? `<a class="link-btn" href="${link}" target="_blank" rel="noopener">Open tracking ↗</a>` : ''}</span>
     </div>`;
   }
-  if (o.status === 'cancelled' || courierOn === false) return '';
+  if (o.status === 'cancelled' || o.status === 'returned' || courierOn === false) return '';
   const cod = o.payment === 'bkash' ? 0 : o.total;
   return `<div class="ocard__courier ocard__courier--send">
     <label class="f"><span>Cash to collect (৳)</span><input type="number" min="0" step="1" data-cod value="${cod}" /></label>
