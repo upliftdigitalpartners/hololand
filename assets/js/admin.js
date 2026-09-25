@@ -443,6 +443,9 @@ document.addEventListener('click', async (e) => {
 /* ---------------- texts & settings ---------------- */
 const TEXT_FIELDS = [
   { group: 'Announcement bar', help: 'A thin orange bar at the very top of the site. Leave empty to hide it.', fields: [['settings.announcement', 'Announcement', 'e.g. Eid sale: 15% off all panjabis this week']] },
+  { group: 'Look', help: 'Colours of the website. Light is white & orange; Dark is the original black & orange. Publish to apply.', fields: [
+    ['settings.theme', 'Site theme', '', false, [['light', 'Light (white & orange)'], ['dark', 'Dark (black & orange)']]],
+  ] },
   { group: 'Contact & store', fields: [
     ['settings.whatsappNumber', 'WhatsApp number (orders go here)', '8801XXXXXXXXX'],
     ['settings.deliveryNote', 'Delivery / payment note'],
@@ -484,7 +487,9 @@ function setVal(path, v) {
 function renderTexts() {
   $('[data-texts]').innerHTML = TEXT_FIELDS.map((g) => `
     <div class="fgroup"><h3>${g.group}</h3>${g.help ? `<p>${g.help}</p>` : ''}
-      ${g.fields.map(([path, label, ph = '', long]) => `<label class="f"><span>${label}</span>${long
+      ${g.fields.map(([path, label, ph = '', long, opts]) => `<label class="f"><span>${label}</span>${opts
+        ? `<select data-path="${path}">${opts.map(([v, t]) => `<option value="${v}" ${(getVal(path) || opts[0][0]) === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`
+        : long
         ? `<textarea rows="3" data-path="${path}" placeholder="${esc(ph)}">${esc(getVal(path))}</textarea>`
         : `<input data-path="${path}" value="${esc(getVal(path))}" placeholder="${esc(ph)}" />`}</label>`).join('')}
     </div>`).join('');

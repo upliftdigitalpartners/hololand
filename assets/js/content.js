@@ -18,6 +18,10 @@ export async function applyContent(products) {
   if (set.deliveryNote) CONFIG.deliveryNote = set.deliveryNote;
   if (set.socials) CONFIG.socials = { ...CONFIG.socials, ...set.socials };
   CONFIG.store = set.store || {};
+  const theme = set.theme === 'dark' ? 'dark' : 'light';
+  if (theme === 'dark') document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0d0a09' : '#ffffff');
+  try { localStorage.setItem('hl.theme', theme); } catch { /* ignore */ }
   CONFIG.categories = cleanCategories(set.categories);
   if (set.delivery) {
     const n = (v) => (Number.isFinite(parseInt(v, 10)) ? Math.max(0, parseInt(v, 10)) : undefined);

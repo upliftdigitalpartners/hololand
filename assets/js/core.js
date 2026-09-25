@@ -13,6 +13,9 @@ gsap.registerPlugin(ScrollTrigger, SplitText);
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+// Theme (light by default, dark if chosen in the admin). The last one used is remembered to avoid a flash.
+try { if (localStorage.getItem('hl.theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch { /* ignore */ }
+
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
 export const webgl = (() => {
@@ -204,7 +207,8 @@ function animations() {
 }
 
 function setupFooter() {
-  if (!webgl || lite) return;
+  // The particle logo is drawn for the dark theme.
+  if (!webgl || lite || document.documentElement.dataset.theme !== 'dark') return;
   const canvas = $('[data-logo-canvas]');
   const io = new IntersectionObserver(async ([e]) => {
     if (!e.isIntersecting) return;
