@@ -13,7 +13,52 @@
       "facebook": "https://www.facebook.com/hololandclothing",
       "instagram": "https://www.instagram.com/hololand.bd/",
       "tiktok": "https://www.tiktok.com/@hololandclothing"
-    }
+    },
+    "categories": [
+      {
+        "id": "men",
+        "name": "Men · Panjabi",
+        "group": "men",
+        "type": "Panjabi",
+        "sizes": [
+          "38",
+          "40",
+          "42",
+          "44",
+          "46"
+        ],
+        "title": "Men’s Panjabi",
+        "lede": "Banded collars, woven yokes and quiet embroidery. Made for Eid, weddings and every Jummah in between."
+      },
+      {
+        "id": "women",
+        "name": "Women · Knitwear",
+        "group": "women",
+        "type": "Knitwear",
+        "sizes": [
+          "S",
+          "M",
+          "L",
+          "XL"
+        ],
+        "title": "Women’s Knitwear",
+        "lede": "Mock-necks and crews in soft, fine-gauge knits and colours that warm up a Bangladeshi winter."
+      },
+      {
+        "id": "polo-shirts",
+        "name": "Polo Shirts",
+        "group": "men",
+        "type": "Polo Shirts",
+        "sizes": [
+          "S",
+          "M",
+          "L",
+          "XL"
+        ],
+        "title": "",
+        "lede": ""
+      }
+    ]
   },
   "texts": {
     "hero.eyebrow": "Autumn / Winter ’26 — Chittagong",
