@@ -58,7 +58,11 @@
         "title": "",
         "lede": "Redefine casual elegance with our premium Polo Shirts!"
       }
-    ]
+    ],
+    "delivery": {
+      "outsideDays": "72 hours",
+      "insideDays": "24 hours"
+    }
   },
   "texts": {
     "hero.eyebrow": "Autumn / Winter ’26 — Chittagong",
