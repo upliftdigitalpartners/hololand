@@ -4,11 +4,11 @@
     {
       "id": "mp-03",
       "code": "MP-03",
-      "name": "Mens Polo",
+      "name": "Sand Beige Horizontal Mercerized Stripe Polo Shirt",
       "cat": "polo-shirts",
       "type": "Polo Shirts",
       "price": 1590,
-      "color": "Beige",
+      "color": "Sand Beige",
       "hex": "#807d6b",
       "images": [
         "item-mukxr5bc"
@@ -20,11 +20,11 @@
     {
       "id": "mp-02",
       "code": "MP-02",
-      "name": "Mens Polo",
+      "name": "Forest Green Horizontal Mercerized Stripe Polo Shirt",
       "cat": "polo-shirts",
       "type": "Polo Shirts",
       "price": 1590,
-      "color": "Leaf Green",
+      "color": "Forest Green",
       "hex": "#273f2b",
       "images": [
         "item-mukxq1qp"
@@ -36,12 +36,12 @@
     {
       "id": "mp-01",
       "code": "MP-01",
-      "name": "Mens Polo",
+      "name": "Mocha Beige Horizontal Mercerized Stripe Polo Shirt",
       "cat": "polo-shirts",
       "type": "Polo Shirts",
       "price": 1590,
-      "color": "Brown",
-      "hex": "#d0c59f",
+      "color": "Mocha Beige",
+      "hex": "#ada68a",
       "images": [
         "item-mukxnh81"
       ],
@@ -52,7 +52,7 @@
     {
       "id": "mens-polo",
       "code": "-",
-      "name": "Mens Polo",
+      "name": "Cream Beige Horizontal Mercerized Stripe Polo Shirt",
       "cat": "polo-shirts",
       "type": "Polo Shirts",
       "price": 1590,
@@ -61,7 +61,7 @@
       "images": [
         "item-mukxlz6v"
       ],
-      "fabric": "",
+      "fabric": "Cream Beige",
       "tags": [],
       "desc": ""
     },
