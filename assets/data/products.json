@@ -2,6 +2,70 @@
   "_note": "Prices, names and descriptions are placeholders - edit freely. 'images' are basenames in assets/img (the -lg / -sm suffix is added by the site).",
   "products": [
     {
+      "id": "mp-03",
+      "code": "MP-03",
+      "name": "Mens Polo",
+      "cat": "polo-shirts",
+      "type": "Polo Shirts",
+      "price": 1588,
+      "color": "Beige",
+      "hex": "#807d6b",
+      "images": [
+        "item-mukxr5bc"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": ""
+    },
+    {
+      "id": "mp-02",
+      "code": "MP-02",
+      "name": "Mens Polo",
+      "cat": "polo-shirts",
+      "type": "Polo Shirts",
+      "price": 1590,
+      "color": "Leaf Green",
+      "hex": "#273f2b",
+      "images": [
+        "item-mukxq1qp"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": ""
+    },
+    {
+      "id": "mp-01",
+      "code": "MP-01",
+      "name": "Mens Polo",
+      "cat": "polo-shirts",
+      "type": "Polo Shirts",
+      "price": 1590,
+      "color": "Brown",
+      "hex": "#d0c59f",
+      "images": [
+        "item-mukxnh81"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": "Stripe Polo"
+    },
+    {
+      "id": "mens-polo",
+      "code": "-",
+      "name": "Mens Polo",
+      "cat": "polo-shirts",
+      "type": "Polo Shirts",
+      "price": 1590,
+      "color": "Beige",
+      "hex": "#c5c2af",
+      "images": [
+        "item-mukxlz6v"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": ""
+    },
+    {
       "id": "mp-223",
       "code": "MP-223",
       "name": "Maroon Heritage",
