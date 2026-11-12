@@ -60,8 +60,8 @@
       }
     ],
     "delivery": {
-      "outsideDays": "72 hours",
-      "insideDays": "24 hours"
+      "outsideDays": "",
+      "insideDays": ""
     }
   },
   "texts": {
