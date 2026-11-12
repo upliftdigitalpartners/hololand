@@ -401,6 +401,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .qv__thumbs button.is-active { opacity: 1; border-color: var(--orange); }
 .qv__thumbs img { width: 100%; height: 100%; object-fit: cover; }
 .qv__info { display: flex; flex-direction: column; justify-content: center; }
+.qv__more { margin-top: 16px; align-self: center; }
 .qv__info h3 { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 4.4vw, 64px); line-height: 1; margin: 12px 0 10px; }
 .qv__price { font-size: 22px; font-weight: 600; color: var(--orange-2); margin: 0 0 18px; }
 .qv__desc { color: var(--cream-2); margin: 0 0 16px; }

@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { deliveryLine } from './delivery.js';
 import { DEFAULT_CATEGORIES, GROUPS, cleanCategories } from './categories.js';
 
 // Refuse to run inside another site's frame (clickjacking).
@@ -475,8 +476,8 @@ const TEXT_FIELDS = [
     ['settings.delivery.inside', 'Inside Chittagong city (৳)', '70'],
     ['settings.delivery.outside', 'Outside Chittagong (৳)', '130'],
     ['settings.delivery.freeOver', 'Free delivery on orders over (৳)', '5000'],
-    ['settings.delivery.insideDays', 'Days to deliver inside Chittagong', '1-2'],
-    ['settings.delivery.outsideDays', 'Days to deliver outside Chittagong', '2-4'],
+    ['settings.delivery.insideDays', 'Days to deliver inside Chittagong (e.g. 1-2; “24 hours” works too)', '1-2'],
+    ['settings.delivery.outsideDays', 'Days to deliver outside Chittagong (e.g. 2-4)', '2-4'],
     ['settings.delivery.cutoff', 'Orders after this hour go out the next day (0–24)', '17'],
     ['settings.delivery.skipFriday', 'Skip Fridays', '', false, [['yes', 'Yes, no deliveries on Friday'], ['no', 'No, deliver on Fridays too']]],
   ] },
@@ -520,13 +521,24 @@ function renderTexts() {
         : long
         ? `<textarea rows="3" data-path="${path}" placeholder="${esc(ph)}">${esc(getVal(path))}</textarea>`
         : `<input data-path="${path}" value="${esc(getVal(path))}" placeholder="${esc(ph)}" />`}</label>`).join('')}
+      ${g.group === 'Delivery' ? '<p class="hint eta-preview">Customers see: <b data-eta-preview></b></p>' : ''}
     </div>`).join('');
+  etaPreview();
+}
+/** Shows the delivery line exactly as the site will, from the values being edited. */
+function etaPreview() {
+  const el = $('[data-eta-preview]');
+  if (!el) return;
+  const d = state.content?.settings?.delivery || {};
+  CONFIG.deliveryTimes = { insideDays: d.insideDays, outsideDays: d.outsideDays, cutoff: d.cutoff, skipFriday: d.skipFriday };
+  el.textContent = deliveryLine();
 }
 $('[data-texts]').addEventListener('input', (e) => {
   const path = e.target.dataset.path;
   if (!path) return;
   setVal(path, e.target.value);
   markDirty('content');
+  if (path.startsWith('settings.delivery.')) etaPreview();
 });
 
 /* ---------------- FAQ ---------------- */
