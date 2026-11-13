@@ -57,6 +57,19 @@
         ],
         "title": "",
         "lede": "Redefine casual elegance with our premium Polo Shirts!"
+      },
+      {
+        "id": "winter-wear",
+        "name": "WINTER-WEAR",
+        "group": "men",
+        "type": "",
+        "sizes": [
+          "M",
+          "L",
+          "XL"
+        ],
+        "title": "",
+        "lede": "WINTER CHAPTER"
       }
     ],
     "delivery": {
