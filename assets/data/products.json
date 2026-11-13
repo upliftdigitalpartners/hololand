@@ -2,6 +2,22 @@
   "_note": "Prices, names and descriptions are placeholders - edit freely. 'images' are basenames in assets/img (the -lg / -sm suffix is added by the site).",
   "products": [
     {
+      "id": "jh",
+      "code": "JH",
+      "name": "Straight fit zipper Jackets",
+      "cat": "winter-wear",
+      "type": "JACKET",
+      "price": 2090,
+      "color": "",
+      "hex": "#21b9c4",
+      "images": [
+        "item-mwf9fc0p"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": "Straight fit zipper Jackets"
+    },
+    {
       "id": "jh-01",
       "code": "JH-01",
       "name": "Straight fit zipper Jackets",
