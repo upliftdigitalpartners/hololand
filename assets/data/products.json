@@ -2,6 +2,23 @@
   "_note": "Prices, names and descriptions are placeholders - edit freely. 'images' are basenames in assets/img (the -lg / -sm suffix is added by the site).",
   "products": [
     {
+      "id": "jh-02",
+      "code": "JH-02",
+      "name": "Solid zipper Jackets",
+      "cat": "winter-wear",
+      "type": "JACKET",
+      "price": 2090,
+      "color": "",
+      "hex": "#14185d",
+      "images": [
+        "item-mwfaas8z",
+        "item-mwfaasg6"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": "Solid Zipper jackets"
+    },
+    {
       "id": "jh",
       "code": "JH",
       "name": "Shoulder stripe  zipper Jackets",
@@ -15,12 +32,12 @@
       ],
       "fabric": "",
       "tags": [],
-      "desc": "Straight fit zipper Jackets"
+      "desc": "Shoulder stripe  zipper Jackets"
     },
     {
       "id": "jh-01",
       "code": "JH-01",
-      "name": "Straight fit zipper Jackets",
+      "name": "Shoulder stripe  zipper Jackets",
       "cat": "winter-wear",
       "type": "JACKET",
       "price": 2090,
@@ -31,7 +48,7 @@
       ],
       "fabric": "",
       "tags": [],
-      "desc": "Straight fit zipper Jackets"
+      "desc": "Shoulder stripe  zipper Jackets"
     },
     {
       "id": "mp-03",
