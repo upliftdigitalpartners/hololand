@@ -2,6 +2,22 @@
   "_note": "Prices, names and descriptions are placeholders - edit freely. 'images' are basenames in assets/img (the -lg / -sm suffix is added by the site).",
   "products": [
     {
+      "id": "jh-01",
+      "code": "JH-01",
+      "name": "Straight fit zipper Jackets",
+      "cat": "winter-wear",
+      "type": "JACKET",
+      "price": 2090,
+      "color": "",
+      "hex": "#477e80",
+      "images": [
+        "jh-01-mwf8q826"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": "Straight fit zipper Jackets"
+    },
+    {
       "id": "mp-03",
       "code": "MP-03",
       "name": "Sand Beige Horizontal Mercerized Stripe Polo Shirt",
