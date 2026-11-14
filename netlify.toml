@@ -8,3 +8,8 @@
   for = "/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
+
+# Ask for a password before serving anything (see netlify/edge-functions/demo-gate.js).
+[[edge_functions]]
+  path = "/*"
+  function = "demo-gate"
