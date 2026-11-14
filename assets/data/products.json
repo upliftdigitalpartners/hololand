@@ -2,6 +2,22 @@
   "_note": "Prices, names and descriptions are placeholders - edit freely. 'images' are basenames in assets/img (the -lg / -sm suffix is added by the site).",
   "products": [
     {
+      "id": "jh-06",
+      "code": "JH-06",
+      "name": "Minimal  Ash button shacket",
+      "cat": "winter-wear",
+      "type": "Shacket",
+      "price": 1790,
+      "color": "",
+      "hex": "#fcfcfc",
+      "images": [
+        "item-mwg6aon9"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": "Embrace a sleek, modern look with this minimalist striped shacket. Featuring a neutral Ash tone, this straight fit shacket adds a bold yet sophisticated touch to any outfit. Perfect for elevating your everyday wardrobe, it pairs effortlessly with dark jeans and a crisp white shirt for a polished, contemporary vibe."
+    },
+    {
       "id": "jh-05",
       "code": "JH-05",
       "name": "Solid Button Shacket",
