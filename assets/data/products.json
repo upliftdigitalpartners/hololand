@@ -2,6 +2,22 @@
   "_note": "Prices, names and descriptions are placeholders - edit freely. 'images' are basenames in assets/img (the -lg / -sm suffix is added by the site).",
   "products": [
     {
+      "id": "jh-04",
+      "code": "JH-04",
+      "name": "Stripe button shacket",
+      "cat": "winter-wear",
+      "type": "Shacket",
+      "price": 1790,
+      "color": "Grey Black",
+      "hex": "#27272b",
+      "images": [
+        "item-mwg62u00"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": "Embrace a sleek, modern look with this minimalist striped shacket. Featuring a neutral grey and black pattern, this straight fit shacket adds a bold yet sophisticated touch to any outfit. Perfect for elevating your everyday wardrobe, it pairs effortlessly with dark jeans and a crisp white shirt for a polished, contemporary vibe."
+    },
+    {
       "id": "jh-03",
       "code": "JH-03",
       "name": "Contrast  zipper Jackets",
