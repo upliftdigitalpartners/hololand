@@ -73,8 +73,8 @@
       }
     ],
     "delivery": {
-      "outsideDays": "",
-      "insideDays": ""
+      "outsideDays": "2",
+      "insideDays": "1"
     }
   },
   "texts": {
