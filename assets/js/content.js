@@ -21,7 +21,7 @@ export async function applyContent(products) {
   CONFIG.store = set.store || {};
   const theme = set.theme === 'dark' ? 'dark' : 'light';
   if (theme === 'dark') document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0d0a09' : '#ffffff');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#fff8ec');
   try { localStorage.setItem('hl.theme', theme); } catch { /* ignore */ }
   CONFIG.categories = cleanCategories(set.categories);
   if (set.delivery) {

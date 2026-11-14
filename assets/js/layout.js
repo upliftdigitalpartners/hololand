@@ -46,6 +46,18 @@ export function refreshCategoryLinks(page, active = activeKey(page)) {
   if (shop) shop.innerHTML = `<h3>Shop</h3>${footerShop()}`;
 }
 
+// Phone tab bar (Mela theme): the four places shoppers go most. Hidden on wider screens by CSS.
+const TABS = [
+  { key: 'home', label: 'Home', href: './', icon: '<path d="M3 11l9-7 9 7v9H3z"/>' },
+  { key: 'shop', label: 'Shop', href: 'shop.html', icon: '<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>' },
+  { key: 'lookbook', label: 'Looks', href: 'lookbook.html', icon: '<path d="M6 21V10a6 6 0 0112 0v11z"/>' },
+  { key: 'stylist', label: 'Stylist', href: 'stylist.html', icon: '<path d="M4 5h16v11H9l-5 4z"/>' },
+];
+const tabbar = (page) => `
+  <nav class="tabbar" aria-label="Quick links">
+    ${TABS.map((t) => `<a href="${t.href}" class="${t.key === page ? 'is-active' : ''}" ${t.key === page ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true">${t.icon}</svg>${t.label}</a>`).join('')}
+  </nav>`;
+
 function header(page) {
   const active = activeKey(page);
   return `
@@ -69,7 +81,7 @@ function header(page) {
       <a href="#" data-whatsapp class="btn btn--ghost btn--sm"><span>WhatsApp us</span></a>
       <span data-delivery-note></span>
     </div>
-  </div>`;
+  </div>${tabbar(page)}`;
 }
 
 function footer() {

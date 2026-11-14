@@ -1,0 +1,10 @@
+# Demo / preview hosting only. Production is GitHub Pages (see .github/workflows/pages.yml),
+# which ignores this file. The demo is kept out of search engines.
+[build]
+  command = "bash scripts/build.sh"
+  publish = "_site"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

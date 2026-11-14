@@ -89,6 +89,7 @@ boot('product', async ({ products, gsap }) => {
     $$('[data-plang]').forEach((x) => x.classList.toggle('is-active', x === b));
   });
   $('[data-pdp-swatch]').style.background = safeHex(p.hex);
+  $('[data-pdp]').style.setProperty('--tint', safeHex(p.hex)); // gallery backdrop takes the garment's colour
   $('[data-pdp-colour]').textContent = p.color;
   $('[data-pdp-fabric]').textContent = p.fabric;
   $('[data-pdp-type]').textContent = `${GROUPS[cat.group] && cat.group !== 'all' ? `${GROUPS[cat.group]} · ` : ''}${p.type || cat.type}`;

@@ -78,7 +78,7 @@ export function cardHTML(p, i = 0, eager = false) {
   const r = ratingOf(p.id);
   // Tapping the photo opens the quick view (sizes + add to bag); the name goes to the full product page.
   return `
-    <article class="card ${out ? 'is-soldout' : ''}" data-id="${p.id}" style="--i:${i}">
+    <article class="card ${out ? 'is-soldout' : ''}" data-id="${p.id}" style="--i:${i};--tint:${safeHex(p.hex)}">
       <div class="card__frame">
         <a class="card__media arch" href="${productUrl(p.id)}" data-quick="${p.id}" data-cursor="View" aria-label="${esc(p.name)}: choose size">
           ${out ? '<span class="card__tag">Sold out</span>' : ''}
