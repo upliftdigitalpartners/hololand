@@ -52,7 +52,7 @@
     {
       "id": "jh-04",
       "code": "JH-04",
-      "name": "Stripe button shacket",
+      "name": "Stripe Button shacket",
       "cat": "winter-wear",
       "type": "Shacket",
       "price": 1790,
@@ -68,7 +68,7 @@
     {
       "id": "jh-03",
       "code": "JH-03",
-      "name": "Contrast  zipper Jackets",
+      "name": "Contrast  Zipper Jackets",
       "cat": "winter-wear",
       "type": "JACKET",
       "price": 2090,
@@ -84,7 +84,7 @@
     {
       "id": "jh-02",
       "code": "JH-02",
-      "name": "Solid zipper Jackets",
+      "name": "Solid Zipper Jackets",
       "cat": "winter-wear",
       "type": "JACKET",
       "price": 1790,
@@ -101,7 +101,7 @@
     {
       "id": "jh",
       "code": "JH",
-      "name": "Shoulder stripe  zipper Jackets",
+      "name": "Shoulder Stripe  Zipper Jackets",
       "cat": "winter-wear",
       "type": "JACKET",
       "price": 2090,
@@ -117,7 +117,7 @@
     {
       "id": "jh-01",
       "code": "JH-01",
-      "name": "Shoulder stripe  zipper Jackets",
+      "name": "Shoulder Stripe  Zipper Jackets",
       "cat": "winter-wear",
       "type": "JACKET",
       "price": 2090,
