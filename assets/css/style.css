@@ -479,6 +479,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .co-eta { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--orange-2); letter-spacing: 0; }
 .co-eta:empty { display: none; }
 .checkout__privacy { margin: -4px 0 0; font-size: 12px; color: var(--muted); }
+.checkout__privacy a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .checkout__sum { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-bottom: 14px; font-size: 14px; color: var(--cream-2); }
 .checkout__sum strong { font-size: 17px; color: var(--cream); margin-top: 4px; }
 .checkout__err { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255,122,107,.1); border: 1px solid rgba(255,122,107,.4); color: #ffb3a8; font-size: 13px; }

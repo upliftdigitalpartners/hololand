@@ -88,13 +88,13 @@ function footer() {
     </div>
     <div class="footer__cols">
       <div data-footer-shop><h3>Shop</h3>${footerShop()}</div>
-      <div><h3>Help</h3><a href="track.html">Track your order</a><a href="help.html">FAQ &amp; delivery</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
+      <div><h3>Help</h3><a href="track.html">Track your order</a><a href="help.html">FAQ &amp; delivery</a><a href="refund-policy.html">Returns &amp; refunds</a><a href="stylist.html">Personal stylist</a><a href="#" data-whatsapp>WhatsApp us</a></div>
       <div data-store-col hidden><h3>Visit us</h3><span data-store-address></span><span data-store-hours></span><a data-store-map target="_blank" rel="noopener" hidden>Open in Google Maps ↗</a></div>
       <div><h3>Follow</h3><a data-social="facebook" target="_blank" rel="noopener">Facebook</a><a data-social="instagram" target="_blank" rel="noopener">Instagram</a><a data-social="tiktok" target="_blank" rel="noopener">TikTok</a></div>
     </div>
     <div class="footer__bottom">
       <span><a href="admin.html" class="admin-link" aria-label="Admin" rel="nofollow">©</a> <span data-year></span> Hololand · Made in Bangladesh</span>
-      <span class="footer__about"><a href="story.html">Our story</a> · <a href="help.html">Help</a></span>
+      <span class="footer__about"><a href="story.html">Our story</a> · <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="refund-policy.html">Returns &amp; refunds</a></span>
     </div>
   </footer>`;
 }
@@ -177,7 +177,7 @@ const OVERLAYS = `
           <label class="cf"><span>Note <small>(optional)</small></span><input name="note" maxlength="300" placeholder="e.g. call before delivery" /></label>
           <label class="cf cf--hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
           <label class="check"><input type="checkbox" name="remember" /> Remember my details on this device</label>
-          <p class="checkout__privacy">We use these details only to confirm and deliver your order.</p>
+          <p class="checkout__privacy">We use these details only to confirm and deliver your order (<a href="privacy.html">privacy</a>). By ordering you agree to our <a href="terms.html">terms</a> and <a href="refund-policy.html">returns policy</a>.</p>
         </div>
         <div class="drawer__foot">
           <div class="checkout__sum">
