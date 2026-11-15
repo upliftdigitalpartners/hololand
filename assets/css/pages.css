@@ -301,3 +301,17 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
 .track__items strong { color: var(--cream); padding-top: 6px; }
 .track__help { margin: 0; font-size: 13px; color: var(--muted); }
 .track__help a { color: var(--orange-2); }
+
+/* Policy pages (terms, privacy, returns & refunds) */
+.policy { max-width: 760px; padding: 0 var(--gutter) clamp(80px, 10vw, 140px); color: var(--cream-2); font-size: 16px; line-height: 1.7; }
+.policy__updated { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+.policy__nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 32px; }
+.policy__nav a { padding: 10px 16px; border: 1px solid var(--line-2); border-radius: 99px; font-size: 13px; font-weight: 600; color: var(--cream-2); }
+.policy__nav a[aria-current="page"] { background: var(--cream); color: var(--ink); border-color: var(--cream); }
+.policy h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; color: var(--cream); margin: 40px 0 12px; }
+.policy p, .policy ul, .policy ol { margin: 0 0 14px; }
+.policy ul, .policy ol { padding-left: 22px; }
+.policy li { margin: 6px 0; }
+.policy a:not(.policy__nav a) { color: var(--orange-2); text-decoration: underline; text-underline-offset: 3px; }
+.policy strong { color: var(--cream); }
+.policy [hidden] { display: none; }
