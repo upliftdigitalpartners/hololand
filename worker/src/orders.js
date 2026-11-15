@@ -6,6 +6,8 @@ import { dayOf } from './stats.js';
 export const ORDER_STATUSES = ['new', 'confirmed', 'shipped', 'delivered', 'cancelled', 'returned'];
 // Orders in these states hold no stock and no promo use ('returned' = parcel refused / sent back).
 const OFF = new Set(['cancelled', 'returned']);
+// An online order only counts as a sale once it's paid (and not with SSLCommerz test keys).
+const counts = (r) => !OFF.has(r.status) && !(r.payment === 'online' && (r.pay_status !== 'paid' || String(r.pay_info || '').includes('"test":true')));
 const RETURNED_SQL = "(status = 'returned' OR courier_status IN ('cancelled', 'cancelled_approval_pending'))";
 
 export class Orders extends DurableObject {
@@ -24,7 +26,9 @@ export class Orders extends DurableObject {
     this.sql.exec('CREATE TABLE IF NOT EXISTS stock (product TEXT NOT NULL, size TEXT NOT NULL, qty INTEGER NOT NULL, PRIMARY KEY (product, size))');
     // What each order took from stock, so cancelling or deleting it can put it back.
     // Later columns: promo code + discount, and courier booking details.
-    for (const col of ['stock_taken TEXT', 'promo TEXT', 'discount INTEGER', 'courier TEXT', 'consignment_id TEXT', 'tracking_code TEXT', 'courier_status TEXT', 'courier_at INTEGER']) {
+    // Online payment (SSLCommerz): pay_status pending | paid | failed, the latest transaction id, and what the gateway reported.
+    for (const col of ['stock_taken TEXT', 'promo TEXT', 'discount INTEGER', 'courier TEXT', 'consignment_id TEXT', 'tracking_code TEXT', 'courier_status TEXT', 'courier_at INTEGER',
+      'pay_status TEXT', 'pay_tran TEXT', 'pay_info TEXT', 'pay_tries INTEGER']) {
       try { this.sql.exec(`ALTER TABLE orders ADD COLUMN ${col}`); } catch { /* already there */ }
     }
     this.sql.exec(`CREATE TABLE IF NOT EXISTS promos (
@@ -36,10 +40,10 @@ export class Orders extends DurableObject {
     // A double tap or a retry within 10 minutes returns the same order.
     const dup = this.sql.exec('SELECT id FROM orders WHERE phone = ? AND items = ? AND ts > ?', o.phone, o.items, o.ts - 600_000).toArray()[0];
     if (dup) return { id: dup.id, duplicate: true };
-    // Numbers the admin flagged: blocked, or allowed only with bKash advance payment.
+    // Numbers the admin flagged: blocked, or allowed only with advance payment (bKash or online).
     const flag = ((await this.getKV('phone_flags')) || {})[o.phone];
     if (flag === 'block') return { blocked: true };
-    if (flag === 'advance' && o.payment !== 'bkash') return { needAdvance: true };
+    if (flag === 'advance' && !['bkash', 'online'].includes(o.payment)) return { needAdvance: true };
     // Fake orders shouldn't be able to lock up stock: a phone can have at most 3 orders waiting for confirmation.
     const open = this.sql.exec("SELECT COUNT(*) AS n FROM orders WHERE phone = ? AND status = 'new'", o.phone).toArray()[0].n;
     if (open >= 3) return { tooMany: true };
@@ -68,9 +72,10 @@ export class Orders extends DurableObject {
       id = `${prefix}${String(n).padStart(3, '0')}`;
     } while (this.sql.exec('SELECT 1 FROM orders WHERE id = ?', id).toArray().length);
     this.sql.exec(
-      `INSERT INTO orders (id, ts, status, name, phone, area, address, payment, note, gift, items, subtotal, delivery, total, updated, stock_taken, promo, discount)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO orders (id, ts, status, name, phone, area, address, payment, note, gift, items, subtotal, delivery, total, updated, stock_taken, promo, discount, pay_status)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       id, o.ts, 'new', o.name, o.phone, o.area, o.address, o.payment, o.note, o.gift, o.items, o.subtotal, o.delivery, total, o.ts, JSON.stringify(taken), o.promo || null, discount,
+      o.payment === 'online' ? 'pending' : null,
     );
     return { id, discount, total };
   }
@@ -112,6 +117,44 @@ export class Orders extends DurableObject {
     return { ok: true };
   }
 
+  /* ---- online payment (SSLCommerz) ---- */
+  /** A fresh transaction id for paying an order online: HL-261115-001-1, -2, ... */
+  async payStart(id, now = Date.now()) {
+    const r = this.sql.exec('SELECT pay_tries FROM orders WHERE id = ?', id).toArray()[0];
+    if (!r) return null;
+    const n = (r.pay_tries || 0) + 1;
+    const tran = `${id}-${n}`;
+    this.sql.exec("UPDATE orders SET pay_tries = ?, pay_tran = ?, pay_status = CASE WHEN pay_status = 'paid' THEN 'paid' ELSE 'pending' END, updated = ? WHERE id = ?", n, tran, now, id);
+    return { tran };
+  }
+
+  /** Records a payment the gateway confirmed. Safe to call twice (return page + IPN). */
+  async markPaid(id, info, now = Date.now()) {
+    const r = this.sql.exec('SELECT status, pay_status FROM orders WHERE id = ?', id).toArray()[0];
+    if (!r) return null;
+    if (r.pay_status === 'paid') return { already: true, order: await this.getOrder(id) };
+    // Paid after the unpaid order was cancelled: bring it back (and take its stock again).
+    if (OFF.has(r.status)) await this.update(id, { status: 'new' }, now);
+    this.sql.exec("UPDATE orders SET pay_status = 'paid', payment = 'online', pay_info = ?, updated = ? WHERE id = ?", JSON.stringify({ ...info, at: now }), now, id);
+    return { already: false, order: await this.getOrder(id) };
+  }
+
+  async markPayFailed(id, now = Date.now()) {
+    this.sql.exec("UPDATE orders SET pay_status = 'failed', updated = ? WHERE id = ? AND pay_status IS NOT 'paid'", now, id);
+    return { ok: true };
+  }
+
+  /** The customer gave up on paying online: the order becomes cash on delivery. */
+  async payByCash(id, now = Date.now()) {
+    this.sql.exec("UPDATE orders SET payment = 'cod', pay_status = NULL, updated = ? WHERE id = ? AND payment = 'online' AND pay_status IS NOT 'paid'", now, id);
+    return this.getOrder(id);
+  }
+
+  /** Online orders still not paid that were placed before `before` (to check, then cancel). */
+  async unpaidOnline(before) {
+    return this.sql.exec("SELECT id, pay_tran, total FROM orders WHERE payment = 'online' AND pay_status IS NOT 'paid' AND status = 'new' AND ts < ?", before).toArray();
+  }
+
   /** Small settings store (e.g. which Telegram chats get order alerts). */
   async getKV(k) {
     const row = this.sql.exec('SELECT v FROM kv WHERE k = ?', k).toArray()[0];
@@ -151,6 +194,10 @@ export class Orders extends DurableObject {
       discount = p ? (p.type === 'percent' ? Math.round((totals.subtotal * p.value) / 100) : Math.min(p.value, totals.subtotal)) : Math.min(row.discount || 0, totals.subtotal);
     }
     const total = totals.subtotal - discount + totals.delivery;
+    if (totals.lock != null && total !== totals.lock) {
+      this.put(taken); this.take(old.map((t) => ({ id: t.id, size: t.size, qty: t.qty })));
+      return { error: `This order was paid online (৳${totals.lock}), so the total can’t change (it would be ৳${total}). Change the address or note only, or cancel it and refund in SSLCommerz.` };
+    }
     this.sql.exec(`UPDATE orders SET name = ?, phone = ?, area = ?, address = ?, payment = ?, note = ?, items = ?, subtotal = ?, discount = ?,
       delivery = ?, total = ?, stock_taken = ?, updated = ? WHERE id = ?`,
       f.name, f.phone, f.area, f.address, f.payment, f.note, JSON.stringify(items), totals.subtotal, discount, totals.delivery, total, JSON.stringify(taken), now, id);
@@ -167,13 +214,13 @@ export class Orders extends DurableObject {
   /** Numbers for the morning Telegram summary: one Bangladesh day, plus what's waiting now. */
   async daySummary(day) {
     const rows = this.sql.exec('SELECT * FROM orders WHERE ts > ?', Date.now() - 3 * 86_400_000).toArray().filter((r) => dayOf(r.ts) === day);
-    const live = rows.filter((r) => !OFF.has(r.status));
+    const live = rows.filter(counts);
     const units = new Map();
     for (const r of live) for (const l of JSON.parse(r.items || '[]')) units.set(l.name, (units.get(l.name) || 0) + l.qty);
     const best = [...units].sort((a, b) => b[1] - a[1])[0];
     const count = (st) => this.sql.exec('SELECT COUNT(*) AS n FROM orders WHERE status = ?', st).toArray()[0].n;
     return {
-      day, orders: live.length, revenue: live.reduce((n, r) => n + r.total, 0), cancelled: rows.length - live.length,
+      day, orders: live.length, revenue: live.reduce((n, r) => n + r.total, 0), cancelled: rows.filter((r) => OFF.has(r.status)).length,
       best: best ? { name: best[0], units: best[1] } : null,
       waiting: { new: count('new'), confirmed: count('confirmed'), shipped: count('shipped') },
       deliveredYesterday: this.sql.exec("SELECT COUNT(*) AS n FROM orders WHERE status = 'delivered' AND updated > ?", Date.now() - 86_400_000).toArray()[0].n,
@@ -210,19 +257,19 @@ export class Orders extends DurableObject {
     const since = dayOf(now - (days - 1) * 86_400_000);
     const rows = this.sql.exec('SELECT * FROM orders WHERE ts >= ? ORDER BY ts', now - (days + 1) * 86_400_000).toArray()
       .filter((r) => dayOf(r.ts) >= since);
-    const live = rows.filter((r) => !OFF.has(r.status));
+    const live = rows.filter(counts);
     const sum = (list, k) => list.reduce((n, r) => n + (r[k] || 0), 0);
     const byDay = new Map();
     for (let i = days - 1; i >= 0; i--) byDay.set(dayOf(now - i * 86_400_000), { orders: 0, revenue: 0 });
     for (const r of live) { const d = byDay.get(dayOf(r.ts)); if (d) { d.orders++; d.revenue += r.total; } }
-    const products = new Map(), sizes = new Map(), pay = { cod: { orders: 0, revenue: 0 }, bkash: { orders: 0, revenue: 0 } }, promos = new Map();
+    const products = new Map(), sizes = new Map(), pay = { cod: { orders: 0, revenue: 0 }, bkash: { orders: 0, revenue: 0 }, online: { orders: 0, revenue: 0 } }, promos = new Map();
     for (const r of live) {
       for (const l of JSON.parse(r.items || '[]')) {
         const p = products.get(l.id) || { id: l.id, name: l.name, code: l.code, units: 0, revenue: 0 };
         p.units += l.qty; p.revenue += l.price * l.qty; products.set(l.id, p);
         sizes.set(l.size, (sizes.get(l.size) || 0) + l.qty);
       }
-      const pm = pay[r.payment === 'bkash' ? 'bkash' : 'cod']; pm.orders++; pm.revenue += r.total;
+      const pm = pay[r.payment === 'online' ? 'online' : r.payment === 'bkash' ? 'bkash' : 'cod']; pm.orders++; pm.revenue += r.total;
       if (r.promo) { const x = promos.get(r.promo) || { code: r.promo, orders: 0, discount: 0 }; x.orders++; x.discount += r.discount || 0; promos.set(r.promo, x); }
     }
     const status = Object.fromEntries(ORDER_STATUSES.map((st) => [st, rows.filter((r) => r.status === st).length]));
@@ -312,7 +359,7 @@ export class Orders extends DurableObject {
     const r = this.sql.exec('SELECT * FROM orders WHERE id = ? AND phone = ?', id, phone).toArray()[0];
     if (!r) return null;
     return {
-      id: r.id, placed: r.ts, status: r.status, updated: r.updated, area: r.area, payment: r.payment,
+      id: r.id, placed: r.ts, status: r.status, updated: r.updated, area: r.area, payment: r.payment, pay_status: r.pay_status,
       items: JSON.parse(r.items || '[]').map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price })),
       subtotal: r.subtotal, discount: r.discount || 0, delivery: r.delivery, total: r.total,
       courier: r.courier, tracking_code: r.tracking_code, courier_status: r.courier_status,

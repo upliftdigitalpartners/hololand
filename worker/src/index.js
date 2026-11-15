@@ -27,11 +27,14 @@
  *   CHAT_MODEL       text     optional, default openai/gpt-oss-120b
  *   VISION_MODEL     text     optional, default qwen/qwen3.6-27b (check Groq's model list for the current vision model)
  *   STT_MODEL        text     optional, default whisper-large-v3
+ *   SSLCZ_STORE_ID / SSLCZ_STORE_PASSWORD  secrets  online payment (SSLCommerz); SSLCZ_LIVE = "true" for real money (see payments.js)
+ *   PAY_EXPIRE_MINUTES  text  optional, default 60: unpaid online orders are cancelled after this long (checked hourly)
  */
 
 import { EVENT_TYPES, dayOf } from './stats.js';
 export { Stats } from './stats.js';
 import { ORDER_STATUSES } from './orders.js';
+import { payReady, payMode, startSession, validate, queryTran, paysFor, payInfo } from './payments.js';
 export { Orders } from './orders.js';
 
 const GROQ = 'https://api.groq.com/openai/v1';
@@ -42,7 +45,10 @@ export default {
   // Hourly (wrangler.toml [triggers]): refresh courier status of parcels on the way.
   async scheduled(event, env, ctx) {
     if (event.cron === DAILY_CRON) ctx.waitUntil(dailySummary(env).catch((err) => console.error('summary cron', err)));
-    else ctx.waitUntil(refreshParcels(env).catch((err) => console.error('courier cron', err)));
+    else {
+      ctx.waitUntil(refreshParcels(env).catch((err) => console.error('courier cron', err)));
+      ctx.waitUntil(expireUnpaid(env, ctx).catch((err) => console.error('payment cron', err)));
+    }
   },
 
   async fetch(request, env, ctx) {
@@ -60,9 +66,20 @@ export default {
     const { pathname } = new URL(request.url);
     if (request.method === 'GET' && /\/stock\/?$/.test(pathname)) {
       // Sizes that are tracked and how many are left (public: the shop shows "Sold out" / "Only 2 left").
-      if (!env.ORDERS) return json({ stock: {} }, 200, cors);
+      // Also says whether online payment is on, so the checkout can offer it.
+      if (!env.ORDERS) return json({ stock: {}, online: false }, 200, cors);
       const stock = await env.ORDERS.get(env.ORDERS.idFromName('global')).getStock();
-      return json({ stock }, 200, { ...cors, 'Cache-Control': 'public, max-age=15' });
+      return json({ stock, online: payMode(env) }, 200, { ...cors, 'Cache-Control': 'public, max-age=15' });
+    }
+    if (/\/pay-(return|ipn)\/?$/.test(pathname)) {
+      // SSLCommerz sends the customer (pay-return) and its server notice (pay-ipn) here: no Origin to check.
+      if (await limited(request, env.AI_LIMIT)) return new Response('Too many requests', { status: 429 });
+      try {
+        return pathname.includes('pay-ipn') ? await payIpn(request, env, ctx) : await payReturn(request, env, ctx);
+      } catch (err) {
+        console.error('pay callback', err);
+        return pathname.includes('pay-ipn') ? new Response('error', { status: 500 }) : Response.redirect(`${siteOrigin(env)}/track.html`, 303);
+      }
     }
     if (request.method === 'GET' && /\/feed\.xml$/.test(pathname)) {
       // Product feed for Facebook / Instagram (Commerce Manager) and Google Merchant Center.
@@ -75,7 +92,7 @@ export default {
     }
     if (request.method === 'GET') {
       // Handy check after setup: open the Worker URL in a browser.
-      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN, feed: true, courier: !!(env.STEADFAST_API_KEY && env.STEADFAST_SECRET_KEY) }, 200, cors);
+      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN, feed: true, courier: !!(env.STEADFAST_API_KEY && env.STEADFAST_SECRET_KEY), payments: payMode(env) }, 200, cors);
     }
     if (!okOrigin) return json({ error: 'origin not allowed' }, 403, cors);
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405, cors);
@@ -84,6 +101,13 @@ export default {
       // Page views and shop events: never fail loudly, never slow the page down.
       if (!(await limited(request, env.TRACK_LIMIT))) { try { await track(request, env); } catch (err) { console.error('track', err); } }
       return new Response(null, { status: 204, headers: cors });
+    }
+    if (route === 'pay-retry' || route === 'pay-cod') {
+      if (await limited(request, env.ORDER_LIMIT)) return json({ error: 'Too many tries. Please wait a minute.' }, 429, cors);
+      try { return json(await (route === 'pay-retry' ? payRetry : payCod)(request, env, ctx), 200, cors); } catch (err) {
+        if (!err.status) console.error(route, err);
+        return json({ error: err.status ? err.message : 'Please try again in a minute.' }, err.status || 502, cors);
+      }
     }
     if (route === 'promo' || route === 'order-status') {
       if (await limited(request, env.AI_LIMIT)) return json({ error: 'Too many tries. Please wait a minute.' }, 429, cors);
@@ -607,7 +631,10 @@ async function placeOrder(request, env, ctx) {
   const phone = normalizePhone(b.phone);
   const address = cleanText(b.address, 300);
   const area = b.area === 'outside' ? 'outside' : b.area === 'inside' ? 'inside' : null;
-  const payment = ['cod', 'bkash'].includes(b.payment) ? b.payment : null;
+  // Live SSLCommerz replaces manual bKash. In the sandbox, customers still see bKash; only test devices get "Pay online".
+  const mode = payMode(env);
+  const payment = (mode === 'live' ? ['cod', 'online'] : mode === 'sandbox' ? ['cod', 'bkash', 'online'] : ['cod', 'bkash']).includes(b.payment) ? b.payment : null;
+  const email = /^[^\s@]{1,64}@[^\s@]{1,80}\.[a-z]{2,}$/i.test(String(b.email || '').trim()) ? String(b.email).trim() : '';
   if (name.length < 2) throw httpError(400, 'Please enter your name.');
   if (!phone) throw httpError(400, 'Please enter a valid Bangladeshi mobile number (01XXXXXXXXX).');
   if (!area) throw httpError(400, 'Please choose a delivery area.');
@@ -638,7 +665,7 @@ async function placeOrder(request, env, ctx) {
   };
   const { id, duplicate, soldOut, tooMany, promoError, blocked, needAdvance, discount = 0, total } = await stub.create(order);
   if (blocked) throw httpError(400, 'We can’t take online orders for this number. Please contact us on WhatsApp.');
-  if (needAdvance) throw httpError(400, 'For this number we need advance payment. Please choose bKash, and we’ll send the payment details.');
+  if (needAdvance) throw httpError(400, mode === 'live' ? 'For this number we need advance payment. Please choose “Pay online”.' : 'For this number we need advance payment. Please choose bKash, and we’ll send the payment details.');
   if (promoError) throw httpError(400, `${promoError} Remove it to order without a discount.`);
   if (tooMany) throw httpError(429, 'You already have orders waiting for confirmation. We’ll call you soon; for anything urgent, message us.');
   if (soldOut) {
@@ -647,11 +674,129 @@ async function placeOrder(request, env, ctx) {
   }
   // Phone alert to the shop (Telegram). Runs after the reply, never delays the customer.
   if (duplicate) {
-    const ex = await stub.getOrder(id);
-    return { id, subtotal: ex.subtotal, delivery: ex.delivery, discount: ex.discount || 0, promo: ex.promo, total: ex.total, items: ex.items };
+    // The same bag again within 10 minutes: usually a retry after an online payment didn't go through.
+    let ex = await stub.getOrder(id);
+    const unpaid = ex.payment === 'online' && ex.pay_status !== 'paid' && ex.status === 'new';
+    if (unpaid && payment === 'cod') {
+      ex = await stub.payByCash(id);
+      ctx?.waitUntil(notifyOrder(env, stub, ex).catch((err) => console.error('telegram', err)));
+    }
+    const out = { id, subtotal: ex.subtotal, delivery: ex.delivery, discount: ex.discount || 0, promo: ex.promo, total: ex.total, items: ex.items, payment: ex.payment };
+    if (unpaid && payment === 'online') return { ...out, ...(await openPayment(env, stub, ex, request, email)) };
+    return out;
   }
+  const out = { id, subtotal, delivery: fee, discount, promo: order.promo, total, items, payment };
+  // Online: the shop hears about it once it's paid (pay-return / pay-ipn), not now.
+  if (payment === 'online') return { ...out, ...(await openPayment(env, stub, await stub.getOrder(id), request, email)) };
   ctx?.waitUntil(notifyOrder(env, stub, { ...order, id, items, discount, total }).catch((err) => console.error('telegram', err)));
-  return { id, subtotal, delivery: fee, discount, promo: order.promo, total, items };
+  return out;
+}
+
+/* ---------------- online payment (SSLCommerz) ---------------- */
+function siteOrigin(env) {
+  try { if (env.SITE_URL) return new URL(env.SITE_URL).origin; } catch { /* ignore */ }
+  return allowedOrigins(env).find((o) => o.startsWith('https://')) || 'https://hololandbd.com';
+}
+
+/** Starts a payment session: { payUrl } or, if the gateway is down, { payError } (the order stays, unpaid). */
+async function openPayment(env, stub, order, request, email) {
+  const { tran } = await stub.payStart(order.id);
+  try {
+    return { payUrl: await startSession(env, { order, tran, callbackOrigin: new URL(request.url).origin, email }) };
+  } catch (err) {
+    console.error('payment start', order.id, err.message);
+    return { payError: 'We couldn’t open the payment page just now. Try again, or pay cash on delivery instead.' };
+  }
+}
+
+/** Checks a payment with SSLCommerz and records it. True if this order is now paid. */
+async function confirmPayment(env, stub, order, valId, ctx) {
+  const v = await validate(env, valId);
+  if (!paysFor(v, order)) {
+    console.warn('payment not valid', order.id, v.status, v.tran_id, v.amount);
+    return false;
+  }
+  const r = await stub.markPaid(order.id, { ...payInfo(v), ...(payMode(env) === 'sandbox' ? { test: true } : {}) });
+  if (r && !r.already) ctx?.waitUntil(notifyOrder(env, stub, r.order).catch((err) => console.error('telegram', err)));
+  return true;
+}
+
+const orderIdOf = (tran) => (/^(HL-\d{6}-\d{3,})-\d+$/.exec(String(tran || '')) || [])[1] || null;
+
+/** The customer's browser coming back from SSLCommerz (success, fail or cancel). */
+async function payReturn(request, env, ctx) {
+  const url = new URL(request.url);
+  const form = request.method === 'POST' ? await request.formData().catch(() => null) : null;
+  const id = /^HL-\d{6}-\d{3,}$/.test(url.searchParams.get('o') || '') ? url.searchParams.get('o') : orderIdOf(form?.get('tran_id'));
+  const r = url.searchParams.get('r');
+  let result = 'failed';
+  if (id && env.ORDERS) {
+    const stub = ordersStub(env);
+    const order = await stub.getOrder(id);
+    if (order?.pay_status === 'paid') result = 'paid';
+    else if (order && !r && form?.get('val_id')) result = (await confirmPayment(env, stub, order, String(form.get('val_id')), ctx)) ? 'paid' : 'failed';
+    else if (order) { result = r === 'cancel' ? 'cancelled' : 'failed'; await stub.markPayFailed(id); }
+  }
+  return Response.redirect(`${siteOrigin(env)}/track.html${id ? `?id=${id}&pay=${result}` : ''}`, 303);
+}
+
+/** SSLCommerz's server-to-server notice (IPN): records payments even if the customer never came back. */
+async function payIpn(request, env, ctx) {
+  const form = await request.formData().catch(() => null);
+  const id = orderIdOf(form?.get('tran_id'));
+  const valId = form?.get('val_id');
+  if (id && valId && env.ORDERS) {
+    const stub = ordersStub(env);
+    const order = await stub.getOrder(id);
+    if (order && order.pay_status !== 'paid') await confirmPayment(env, stub, order, String(valId), ctx);
+  }
+  return new Response('OK');
+}
+
+/** An unpaid online order the customer owns (order number + phone), or an error. */
+async function ownUnpaid(request, env) {
+  const { id, phone, email } = await request.json().catch(() => ({}));
+  const oid = String(id || '').trim().toUpperCase();
+  const ph = normalizePhone(phone);
+  const stub = ordersStub(env);
+  const order = /^HL-\d{6}-\d{3,}$/.test(oid) && ph ? await stub.getOrder(oid) : null;
+  if (!order || order.phone !== ph) throw httpError(404, 'We couldn’t find that order. Check the order number and phone number.');
+  if (order.pay_status === 'paid') throw httpError(400, 'This order is already paid. Thank you!');
+  if (order.payment !== 'online') throw httpError(400, 'This order is cash on delivery.');
+  if (order.status !== 'new') throw httpError(400, 'This order was cancelled because it wasn’t paid in time. Please place it again.');
+  return { stub, order, email: /^[^\s@]{1,64}@[^\s@]{1,80}\.[a-z]{2,}$/i.test(String(email || '').trim()) ? String(email).trim() : '' };
+}
+
+async function payRetry(request, env) {
+  if (!payReady(env)) throw httpError(400, 'Online payment isn’t available right now. Choose cash on delivery instead.');
+  const { stub, order, email } = await ownUnpaid(request, env);
+  const r = await openPayment(env, stub, order, request, email);
+  if (r.payError) throw httpError(502, r.payError);
+  return r;
+}
+
+async function payCod(request, env, ctx) {
+  const { stub, order } = await ownUnpaid(request, env);
+  const o = await stub.payByCash(order.id);
+  ctx?.waitUntil(notifyOrder(env, stub, o).catch((err) => console.error('telegram', err)));
+  return { ok: true, total: o.total };
+}
+
+/** Hourly: online orders left unpaid for an hour are checked with SSLCommerz, then cancelled (stock goes back). */
+async function expireUnpaid(env, ctx) {
+  if (!env.ORDERS || !payReady(env)) return;
+  const stub = ordersStub(env);
+  const mins = env.PAY_EXPIRE_MINUTES != null && env.PAY_EXPIRE_MINUTES !== '' ? Math.max(0, Number(env.PAY_EXPIRE_MINUTES) || 0) : 60;
+  for (const o of await stub.unpaidOnline(Date.now() - mins * 60_000)) {
+    try {
+      const order = await stub.getOrder(o.id);
+      const trans = [];
+      for (let n = 1; n <= (order.pay_tries || 0); n++) trans.push(...(await queryTran(env, `${o.id}-${n}`)));
+      const ok = trans.find((t) => paysFor(t, order));
+      if (ok && await confirmPayment(env, stub, order, ok.val_id, ctx)) continue;
+      await stub.update(o.id, { status: 'cancelled', admin_note: [order.admin_note, 'Cancelled automatically: online payment not completed within an hour.'].filter(Boolean).join('\n') });
+    } catch (err) { console.error('expire', o.id, err.message); }
+  }
 }
 
 async function listOrders(request, env) {
@@ -695,12 +840,21 @@ function adminLink(env) {
   return origin ? `${origin}/admin.html` : null;
 }
 
+function payLabel(o) {
+  if (o.payment !== 'online') return o.payment === 'bkash' ? 'bKash' : 'Cash on delivery';
+  if (o.pay_status !== 'paid') return '⏳ Online payment not completed';
+  let info = {};
+  try { info = JSON.parse(o.pay_info || '{}'); } catch { /* ignore */ }
+  if (info.test) return '🧪 <b>TEST payment (sandbox): not real money, don’t ship</b>';
+  return `💳 <b>Paid online</b>${info.method ? ` (${tgEsc(info.method)})` : ''}${info.risk ? ` ⚠️ ${tgEsc(info.risk)}` : ''}`;
+}
+
 function orderText(o) {
   const lines = [
     `🛍️ <b>New order ${tgEsc(o.id)}</b>`,
     '',
     `<b>${tgEsc(o.name)}</b> · ${tgEsc(o.phone)}`,
-    `${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'} · ${o.payment === 'bkash' ? 'bKash' : 'Cash on delivery'}`,
+    `${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'} · ${payLabel(o)}`,
     tgEsc(o.address),
     '',
     ...o.items.map((l) => `• ${tgEsc(l.code)} ${tgEsc(l.name)} (${tgEsc(l.size)}) × ${l.qty} — ${taka(l.price * l.qty)}`),
@@ -990,7 +1144,8 @@ async function editOrder(request, env) {
   if (!cur) throw httpError(404, 'Order not found');
   const name = cleanText(n, 60), phone = normalizePhone(ph), address = cleanText(ad, 300);
   const area = ar === 'outside' ? 'outside' : ar === 'inside' ? 'inside' : null;
-  const payment = ['cod', 'bkash'].includes(pay) ? pay : null;
+  // An online order stays online (the admin form only offers cash / bKash).
+  const payment = cur.payment === 'online' ? 'online' : ['cod', 'bkash'].includes(pay) ? pay : null;
   if (name.length < 2 || !phone || !area || address.length < 8 || !payment) throw httpError(400, 'Check the name, phone (01XXXXXXXXX), area, address and payment.');
   if (!Array.isArray(rawItems) || !rawItems.length || rawItems.length > 20) throw httpError(400, 'An order needs at least one item.');
   const { byId, sizes, delivery } = await loadData(env);
@@ -1010,7 +1165,8 @@ async function editOrder(request, env) {
   }
   const subtotal = items.reduce((t, l) => t + l.price * l.qty, 0);
   const fee = delivery.freeOver && subtotal >= delivery.freeOver ? 0 : delivery[area];
-  const r = await stub.editOrder(cur.id, { name, phone, area, address, payment, note: cleanText(note, 300) }, items, { subtotal, delivery: fee });
+  // Paid online: the customer paid exactly this total, so changes may not alter it.
+  const r = await stub.editOrder(cur.id, { name, phone, area, address, payment, note: cleanText(note, 300) }, items, { subtotal, delivery: fee, lock: cur.pay_status === 'paid' ? cur.total : null });
   if (r.error) throw httpError(400, r.error);
   if (r.soldOut) throw httpError(409, `Not enough stock: ${r.soldOut.map((x) => `${x.name} (${x.size}) has ${x.left}`).join('; ')}.`);
   return r.order;

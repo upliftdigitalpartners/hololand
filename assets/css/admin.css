@@ -196,6 +196,9 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .ocard__cust a { color: var(--orange-2); }
 .ocard__addr { color: var(--cream); white-space: pre-wrap; }
 .ocard__note { font-style: italic; color: var(--cream); margin-top: 4px; }
+.ocard__pay.is-paid { color: #5fd38d; font-weight: 600; }
+.ocard__pay.is-due { color: var(--orange-2); font-weight: 600; }
+.ocard__payref { color: var(--muted); font-size: 12px; word-break: break-all; }
 .ocard__items { display: grid; grid-template-columns: 1fr auto; gap: 5px 14px; align-content: start; font-size: 13px; color: var(--cream-2); font-variant-numeric: tabular-nums; }
 .ocard__items span:nth-child(even), .ocard__items b:nth-child(even) { text-align: right; }
 .ocard__items .muted { color: var(--muted); }

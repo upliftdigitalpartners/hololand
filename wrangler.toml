@@ -57,7 +57,7 @@ class_name = "Orders"
 tag = "v2"
 new_sqlite_classes = ["Orders"]
 
-# Hourly: refresh the courier status of parcels on the way (Steadfast).
+# Hourly: refresh the courier status of parcels on the way (Steadfast), and cancel online orders left unpaid for an hour.
 # Daily 03:00 UTC = 09:00 in Bangladesh: morning summary on Telegram.
 [triggers]
 crons = ["17 * * * *", "0 3 * * *"]
@@ -68,3 +68,5 @@ crons = ["17 * * * *", "0 3 * * *"]
 #   GITHUB_TOKEN  (fine-grained GitHub token, Contents: read and write, for publishing admin edits)
 #   TELEGRAM_BOT_TOKEN  (optional: from @BotFather, for new-order alerts; phones are connected in the admin)
 #   STEADFAST_API_KEY, STEADFAST_SECRET_KEY  (optional: Steadfast merchant panel → API, for booking parcels)
+#   SSLCZ_STORE_ID, SSLCZ_STORE_PASSWORD  (optional: SSLCommerz store, for "Pay online" at checkout)
+# Text variable SSLCZ_LIVE = "true" switches SSLCommerz from the sandbox (test payments) to real payments.

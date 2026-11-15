@@ -792,11 +792,11 @@ function renderSales(r) {
   const list = (title, rows, empty) => `<section class="rank"><h3>${esc(title)}</h3>${rows.length ? `<ol>${rows.join('')}</ol>` : `<p class="rank__empty">${esc(empty)}</p>`}</section>`;
   const topUnits = Math.max(1, ...r.products.map((x) => x.units));
   const topSize = Math.max(1, ...r.sizes.map((x) => x.units));
-  const payTotal = Math.max(1, r.payment.cod.orders + r.payment.bkash.orders);
+  const payTotal = Math.max(1, r.payment.cod.orders + r.payment.bkash.orders + (r.payment.online?.orders || 0));
   $('[data-sales-ranks]').innerHTML = [
     list('Best sellers', r.products.map((x) => `<li><span class="rank__name">${esc(x.code)} ${esc(x.name)}</span><span class="rank__n">${nf.format(x.units)} <small>sold · ${taka(x.revenue)}</small></span><span class="rank__bar" style="--w:${((x.units / topUnits) * 100).toFixed(1)}%"></span></li>`), 'No orders yet'),
     list('Sizes sold', r.sizes.map((x) => `<li><span class="rank__name">Size ${esc(x.size)}</span><span class="rank__n">${nf.format(x.units)} <small>pieces</small></span><span class="rank__bar" style="--w:${((x.units / topSize) * 100).toFixed(1)}%"></span></li>`), 'No orders yet'),
-    list('Payment', [['Cash on delivery', r.payment.cod], ['bKash', r.payment.bkash]].filter(([, v]) => v.orders).map(([k, v]) => `<li><span class="rank__name">${k}</span><span class="rank__n">${v.orders} <small>orders · ${taka(v.revenue)}</small></span><span class="rank__bar" style="--w:${((v.orders / payTotal) * 100).toFixed(1)}%"></span></li>`), 'No orders yet'),
+    list('Payment', [['Cash on delivery', r.payment.cod], ['bKash', r.payment.bkash], ['Paid online', r.payment.online || { orders: 0 }]].filter(([, v]) => v.orders).map(([k, v]) => `<li><span class="rank__name">${k}</span><span class="rank__n">${v.orders} <small>orders · ${taka(v.revenue)}</small></span><span class="rank__bar" style="--w:${((v.orders / payTotal) * 100).toFixed(1)}%"></span></li>`), 'No orders yet'),
     list('Promo codes used', r.promos.map((x) => `<li><span class="rank__name">${esc(x.code)}</span><span class="rank__n">${x.orders} <small>orders · −${taka(x.discount)}</small></span></li>`), 'No promo codes used'),
   ].join('');
 }
@@ -844,6 +844,18 @@ const STATUS = {
 };
 const ord = { status: '', q: '', list: [], counts: {}, more: false, lastNew: null, loading: false };
 const taka = (n) => `${CONFIG.currency}${nf.format(n || 0)}`;
+/* Payment: cash on delivery, manual bKash, or online through SSLCommerz (paid or not yet). */
+const payInfoOf = (o) => { try { return JSON.parse(o.pay_info || '{}') || {}; } catch { return {}; } };
+const paidOnline = (o) => o.payment === 'online' && o.pay_status === 'paid';
+function payText(o) {
+  if (o.payment !== 'online') return o.payment === 'bkash' ? 'bKash' : 'Cash on delivery';
+  if (!paidOnline(o)) return 'Online payment: not paid yet';
+  if (payInfoOf(o).test) return 'TEST payment (sandbox): not real money, don’t ship';
+  const m = payInfoOf(o).method;
+  return `Paid online${m ? ` (${m})` : ''}`;
+}
+/** What the courier collects: nothing if it's already paid. */
+const cashToCollect = (o) => (o.payment === 'bkash' || (paidOnline(o) && !payInfoOf(o).test) ? 0 : o.total);
 const ago = (ts) => {
   const m = Math.round((Date.now() - ts) / 60000);
   if (m < 1) return 'just now';
@@ -893,7 +905,7 @@ function renderOrders() {
     const trackUrl = `https://hololandbd.com/track.html?id=${encodeURIComponent(o.id)}`;
     const confirmMsg = o.tracking_code
       ? `Assalamu alaikum ${first}! Your Hololand order ${o.id} is on the way with ${o.courier} (tracking ${o.tracking_code}). Follow it here: ${trackUrl}`
-      : `Assalamu alaikum ${first}! This is Hololand. We received your order ${o.id} (${taka(o.total)}). ${o.payment === 'bkash' ? 'Please send the payment by bKash to confirm. ' : ''}Can you confirm the delivery address: ${o.address}? You can track your order here: ${trackUrl}`;
+      : `Assalamu alaikum ${first}! This is Hololand. We received your order ${o.id} (${taka(o.total)}). ${o.payment === 'bkash' ? 'Please send the payment by bKash to confirm. ' : paidOnline(o) ? 'We’ve received your online payment, thank you! ' : ''}Can you confirm the delivery address: ${o.address}? You can track your order here: ${trackUrl}`;
     return `<article class="ocard is-${esc(o.status)}" data-oid="${esc(o.id)}">
       <header class="ocard__head">
         <div><strong class="ocard__id">${esc(o.id)}</strong><span class="ocard__time" title="${esc(new Date(o.ts).toLocaleString('en-GB'))}">${esc(ago(o.ts))}</span></div>
@@ -908,7 +920,10 @@ function renderOrders() {
           <span><a href="tel:+88${esc(o.phone)}">${esc(o.phone)}</a></span>
           <span>${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'}</span>
           <span class="ocard__addr">${esc(o.address)}</span>
-          <span>${o.payment === 'bkash' ? 'bKash' : 'Cash on delivery'}</span>
+          <span class="ocard__pay ${o.payment === 'online' ? (paidOnline(o) ? 'is-paid' : 'is-due') : ''}">${o.payment === 'online' ? (paidOnline(o) ? '💳 ' : '⏳ ') : ''}${esc(payText(o))}</span>
+          ${paidOnline(o) ? `<small class="ocard__payref">${esc([taka(payInfoOf(o).amount), payInfoOf(o).bank_tran_id && `bank ref ${payInfoOf(o).bank_tran_id}`, payInfoOf(o).tran_id].filter(Boolean).join(' · '))}</small>` : ''}
+          ${payInfoOf(o).risk ? `<span class="ocard__note">⚠️ SSLCommerz: ${esc(payInfoOf(o).risk)}. Check before shipping.</span>` : ''}
+          ${paidOnline(o) && ['cancelled', 'returned'].includes(o.status) ? '<span class="ocard__note">Paid online: refund it from your SSLCommerz merchant panel.</span>' : ''}
           ${o.note ? `<span class="ocard__note">“${esc(o.note)}”</span>` : ''}
           ${o.gift ? `<span class="ocard__note">🎁 Gift card: “${esc(o.gift)}”</span>` : ''}
         </div>
@@ -953,7 +968,7 @@ function riskHTML(o) {
   return `<div class="risk is-${level}"><span>${icon} ${esc(text)}</span>
     <select data-risk-flag aria-label="What to do with this number">
       <option value="" ${!flag ? 'selected' : ''}>Allow normally</option>
-      <option value="advance" ${flag === 'advance' ? 'selected' : ''}>Require bKash advance</option>
+      <option value="advance" ${flag === 'advance' ? 'selected' : ''}>Require advance payment</option>
       <option value="block" ${flag === 'block' ? 'selected' : ''}>Block this number</option>
     </select></div>`;
 }
@@ -965,7 +980,7 @@ $('[data-olist]').addEventListener('change', async (e) => {
     const r = await api('/admin/phone-flag', { phone: o.phone, mode: sel.value || null });
     ord.flags = r.flags;
     renderOrders();
-    toast(sel.value === 'block' ? `${o.phone} can no longer order online` : sel.value === 'advance' ? `${o.phone} must pay by bKash in advance` : `${o.phone} can order normally`);
+    toast(sel.value === 'block' ? `${o.phone} can no longer order online` : sel.value === 'advance' ? `${o.phone} must pay in advance` : `${o.phone} can order normally`);
   } catch (err) { if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`); }
 });
 
@@ -982,7 +997,7 @@ function courierHTML(o) {
     </div>`;
   }
   if (o.status === 'cancelled' || o.status === 'returned' || courierOn === false) return '';
-  const cod = o.payment === 'bkash' ? 0 : o.total;
+  const cod = cashToCollect(o);
   return `<div class="ocard__courier ocard__courier--send">
     <label class="f"><span>Cash to collect (৳)</span><input type="number" min="0" step="1" data-cod value="${cod}" /></label>
     <button class="btn btn--ghost btn--sm" data-courier-send><span>Send to Steadfast</span></button>
@@ -1044,7 +1059,7 @@ $('[data-olist]').addEventListener('focusout', async (e) => {
 $('[data-olist]').addEventListener('click', async (e) => {
   if (e.target.closest('[data-ocopy]')) {
     const o = findOrder(e.target);
-    const text = [`${o.id}`, o.name, o.phone, o.address, `${o.area === 'inside' ? 'Inside' : 'Outside'} Chittagong · ${o.payment === 'bkash' ? 'bKash' : 'COD'}`,
+    const text = [`${o.id}`, o.name, o.phone, o.address, `${o.area === 'inside' ? 'Inside' : 'Outside'} Chittagong · ${o.payment === 'online' ? payText(o) : o.payment === 'bkash' ? 'bKash' : 'COD'}`,
       ...o.items.map((l) => `${l.code} ${l.name} (${l.size}) x${l.qty}`), `Total ${taka(o.total)}`, o.note && `Note: ${o.note}`].filter(Boolean).join('\n');
     try { await navigator.clipboard.writeText(text); toast('Copied, paste it into the courier form'); } catch { toast('Could not copy'); }
   }
@@ -1213,7 +1228,7 @@ function editFormHTML(o) {
       <label class="f"><span>Name</span><input name="name" value="${esc(o.name)}" /></label>
       <label class="f"><span>Phone</span><input name="phone" value="${esc(o.phone)}" inputmode="tel" /></label>
       <label class="f"><span>Area</span><select name="area"><option value="inside" ${o.area === 'inside' ? 'selected' : ''}>Inside Chittagong</option><option value="outside" ${o.area === 'outside' ? 'selected' : ''}>Outside Chittagong</option></select></label>
-      <label class="f"><span>Payment</span><select name="payment"><option value="cod" ${o.payment !== 'bkash' ? 'selected' : ''}>Cash on delivery</option><option value="bkash" ${o.payment === 'bkash' ? 'selected' : ''}>bKash</option></select></label>
+      ${o.payment === 'online' ? `<label class="f"><span>Payment</span><input value="${esc(payText(o))}" disabled /><input type="hidden" name="payment" value="online" /></label>` : `<label class="f"><span>Payment</span><select name="payment"><option value="cod" ${o.payment !== 'bkash' ? 'selected' : ''}>Cash on delivery</option><option value="bkash" ${o.payment === 'bkash' ? 'selected' : ''}>bKash</option></select></label>`}
     </div>
     <label class="f"><span>Address</span><textarea name="address" rows="2">${esc(o.address)}</textarea></label>
     <label class="f"><span>Customer note</span><input name="note" value="${esc(o.note || '')}" /></label>
@@ -1266,7 +1281,7 @@ function printOrder(o, kind) {
   const set = state.content?.settings || {};
   const store = set.store || {};
   const shopPhone = String(set.whatsappNumber || CONFIG.whatsappNumber || '').replace(/\D/g, '');
-  const cod = o.payment === 'bkash' ? 0 : o.total;
+  const cod = cashToCollect(o);
   const date = new Date(o.ts).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const items = o.items.map((l) => `<tr><td>${esc(l.code)} ${esc(l.name)}</td><td>${esc(l.size)}</td><td>${l.qty}</td><td>${taka(l.price)}</td><td>${taka(l.price * l.qty)}</td></tr>`).join('');
   const sheet = $('[data-printsheet]');
@@ -1281,7 +1296,7 @@ function printOrder(o, kind) {
         <div class="pl__addr">${esc(o.address)}</div>
         <div>${o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong'}</div>
       </div>
-      <div class="pl__cod"><small>${cod ? 'Collect cash' : 'Paid (bKash)'}</small><b>${cod ? taka(cod) : '৳0'}</b></div>
+      <div class="pl__cod"><small>${cod ? 'Collect cash' : paidOnline(o) ? 'Paid online' : 'Paid (bKash)'}</small><b>${cod ? taka(cod) : '৳0'}</b></div>
       <div class="pl__meta"><b>${esc(o.id)}</b>${o.tracking_code ? ` · ${esc(o.courier)} ${esc(o.tracking_code)}` : ''}</div>
       <div class="pl__items">${o.items.map((l) => `${esc(l.code)} ${esc(l.name)} (${esc(l.size)}) ×${l.qty}`).join('<br>')}</div>
       ${o.note ? `<div class="pl__note">Note: ${esc(o.note)}</div>` : ''}
@@ -1298,7 +1313,7 @@ function printOrder(o, kind) {
         ${o.discount ? `<tr><td>Discount${o.promo ? ` (${esc(o.promo)})` : ''}</td><td>−${taka(o.discount)}</td></tr>` : ''}
         <tr><td>Delivery</td><td>${o.delivery ? taka(o.delivery) : 'Free'}</td></tr>
         <tr class="pi__total"><td>Total</td><td>${taka(o.total)}</td></tr>
-        <tr><td>Payment</td><td>${o.payment === 'bkash' ? 'bKash' : 'Cash on delivery'}</td></tr>
+        <tr><td>Payment</td><td>${esc(payText(o))}</td></tr>
         <tr><td><b>${cod ? 'Cash to collect' : 'Balance due'}</b></td><td><b>${taka(cod)}</b></td></tr>
       </table>
       ${o.note ? `<p class="pi__note">Note: ${esc(o.note)}</p>` : ''}
@@ -1321,7 +1336,7 @@ $('[data-export-go]').addEventListener('click', async () => {
     const { orders } = await api('/admin/orders-export', { from, to });
     const head = ['Order', 'Date', 'Status', 'Name', 'Phone', 'Area', 'Address', 'Payment', 'Items', 'Pieces', 'Subtotal', 'Promo', 'Discount', 'Delivery', 'Total', 'Courier', 'Tracking', 'Customer note', 'Your note'];
     const rows = orders.map((o) => [o.id, new Date(o.ts + 6 * 3600e3).toISOString().slice(0, 16).replace('T', ' '), STATUS[o.status] || o.status, o.name, o.phone,
-      o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong', o.address, o.payment === 'bkash' ? 'bKash' : 'Cash on delivery',
+      o.area === 'inside' ? 'Inside Chittagong' : 'Outside Chittagong', o.address, payText(o),
       o.items.map((l) => `${l.code} ${l.name} (${l.size}) x${l.qty}`).join('; '), o.items.reduce((n, l) => n + l.qty, 0),
       o.subtotal, o.promo || '', o.discount || 0, o.delivery, o.total, o.courier || '', o.tracking_code || '', o.note || '', o.admin_note || '']);
     const csv = '﻿' + [head, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');

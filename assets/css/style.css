@@ -483,6 +483,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .checkout__sum strong { font-size: 17px; color: var(--cream); margin-top: 4px; }
 .checkout__err { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255,122,107,.1); border: 1px solid rgba(255,122,107,.4); color: #ffb3a8; font-size: 13px; }
 .checkout__err[hidden] { display: none; }
+.cf[hidden], .co-eta[hidden] { display: none; }
 .checkout__err .link-btn { color: var(--cream); }
 
 /* Order placed */
