@@ -106,6 +106,7 @@ Publish needs a GitHub token that can only edit this one repository:
 - **Sale prices:** Products → Edit → **Sale price** (and optionally **Sale ends**, the last day), then Publish. The site shows ~~৳3,650~~ ৳2,990 −18%, the shop gets an *On sale* filter, orders are charged the sale price, and the normal price returns by itself after the last day.
 - **Sales:** Stats tab → *Sales*: revenue, average order, delivered / returned / cancelled, revenue per day, best sellers, sizes sold, cash on delivery vs bKash and promo codes, for Today / 7 / 30 / 90 days.
 - **Risky customers:** every order shows that phone number’s history (e.g. *3 orders · 2 delivered · 1 returned*; ⚠️ if they returned parcels). Use the menu on the order to **Require bKash advance** (that number can only order with bKash) or **Block** it. Set refused parcels to **Returned**: like Cancelled, this puts the stock back, and it counts in the customer’s history. Telegram alerts also warn about past returns.
+- **Online payment:** see Step 10. Paid orders show **💳 Paid online** with the method and bank reference; unpaid ones **⏳ not paid yet** (they're cancelled after an hour). The Sales tab counts paid-online orders separately.
 - **Promos:** create codes like `EID10` (percent or taka off, optional minimum order, last day and max uses). They work at checkout instantly, no Publish. Pause, edit or delete them any time; the list shows how often each was used. The discount comes off the items, not delivery; cancelling an order gives the use back.
 - **Courier (Steadfast):** on an order, check **Cash to collect** (the total for cash on delivery, 0 if paid by bKash) and tap **Send to Steadfast**. The parcel is booked, the order becomes *Shipped* and the tracking code appears. Status updates every hour (or tap **Refresh status**); when Steadfast delivers, the order becomes *Delivered*. Needs Step 9.
 - **Order tracking:** customers go to **hololandbd.com/track.html** (linked after ordering, in the footer and on Help), enter their order number and phone, and see Placed → Confirmed → On the way → Delivered plus the courier link. The WhatsApp message button on each order includes the tracking link.
@@ -168,6 +169,33 @@ New photos uploaded in the admin automatically get the JPG copy the feed needs.
 3. Check: the Worker address shows `"courier": true`. The **Send to Steadfast** button now appears on orders.
 
 If Steadfast changes its API address, add a normal variable `STEADFAST_API` with the new base URL (default `https://portal.packzy.com/api/v1`).
+
+---
+
+## Step 10: Online payment with SSLCommerz (optional)
+
+Customers can choose **Pay online** at checkout (bKash, Nagad, Rocket, Visa/Mastercard and bank cards on SSLCommerz's secure page) or **Cash on delivery**. Until this step is done, the checkout stays as it is now (cash on delivery or manual bKash).
+
+**1. Get an SSLCommerz merchant account.** Apply at sslcommerz.com (*Join as merchant*). They usually ask for a trade licence, the owner's NID, bank account details and the website address, and they check the website before approving. It helps if the site has clear Terms & Conditions, Privacy Policy and Refund/Return Policy pages. Approval can take from a few days to a few weeks.
+
+**2. Test first (sandbox, no real money).** Create a free sandbox store at developer.sslcommerz.com. You get a test **Store ID** and **Store Password** by email.
+1. Cloudflare → **hololand → Settings → Variables and Secrets** (top section) → add two **Secrets**: `SSLCZ_STORE_ID` and `SSLCZ_STORE_PASSWORD` (the sandbox ones) → **Deploy**.
+2. Check: the Worker address shows `"payments": "sandbox"`.
+3. While on sandbox keys, normal customers **don't** see Pay online. To test, open the site on your phone once with `?paytest=1` at the end of the address (e.g. `hololandbd.com/shop.html?paytest=1`). That phone then shows Pay online; `?paytest=0` turns it off again.
+4. Place an order with Pay online, pay with one of SSLCommerz's test cards or test bKash, and you come back to the tracking page showing *Payment received*. In the admin and on Telegram the order says **🧪 TEST payment (sandbox): not real money, don't ship**. Delete test orders afterwards.
+
+**3. Go live.** When SSLCommerz approves your store and sends the live Store ID and password:
+1. Replace the two secrets with the live ones.
+2. Add a normal **Text** variable `SSLCZ_LIVE` = `true` → **Deploy**.
+3. Check: the Worker address shows `"payments": "live"`. Every customer now sees **Cash on delivery** and **Pay online**; manual bKash disappears from the checkout.
+4. Optional, in the SSLCommerz merchant panel: set the IPN URL to `https://hololand.upliftdigitalpartners.workers.dev/pay-ipn` (the site already sends it with every payment).
+
+**How it works day to day**
+- An online order appears in the admin straight away as **⏳ Online payment: not paid yet**. The Telegram alert comes only once it's paid, marked **💳 Paid online (bKash / Nagad / card…)**.
+- Every payment is checked with SSLCommerz before the order is marked paid, including the amount.
+- If a payment fails or the customer cancels, the tracking page offers **Pay now** again or **Pay cash on delivery instead**.
+- Online orders still unpaid after an hour are cancelled automatically and their stock goes back. Before cancelling, the site asks SSLCommerz once more, so a payment that went through late is never lost. You can change the hour with a Text variable `PAY_EXPIRE_MINUTES`.
+- Paid orders: **Send to Steadfast** suggests ৳0 cash to collect, labels say *Paid online*, and the total can't be changed by editing (address and note still can). To refund, use the SSLCommerz merchant panel.
 
 ---
 

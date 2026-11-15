@@ -164,9 +164,12 @@ const OVERLAYS = `
           <fieldset class="cf"><legend>Payment</legend>
             <div class="choice">
               <label><input type="radio" name="payment" value="cod" checked /><span>Cash on delivery<small>Pay when it arrives</small></span></label>
-              <label><input type="radio" name="payment" value="bkash" /><span>bKash<small>We’ll send payment details</small></span></label>
+              <label data-pay="bkash"><input type="radio" name="payment" value="bkash" /><span>bKash<small>We’ll send payment details</small></span></label>
+              <label data-pay="online" hidden><input type="radio" name="payment" value="online" disabled /><span>Pay online<small>bKash, Nagad, Rocket or card</small></span></label>
             </div>
+            <small class="co-eta" data-pay-note hidden>🔒 You’ll pay on SSLCommerz’s secure page next, then come back here.</small>
           </fieldset>
+          <label class="cf" data-pay-email hidden><span>Email <small>(optional, for your payment receipt)</small></span><input name="email" type="email" inputmode="email" autocomplete="email" maxlength="120" placeholder="you@example.com" /></label>
           <div class="cf promo"><span>Promo code <small>(optional)</small></span>
             <div class="promo__row"><input name="promo" maxlength="20" autocapitalize="characters" autocomplete="off" placeholder="e.g. EID10" /><button type="button" class="btn btn--ghost btn--sm" data-promo-apply><span>Apply</span></button></div>
             <small class="promo__msg" data-promo-msg aria-live="polite"></small>

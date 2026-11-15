@@ -8,11 +8,20 @@ const bdNow = () => new Date(Date.now() + BD); // read with getUTC* for Banglade
 const ymd = (d) => d.toISOString().slice(0, 10);
 export const fmtDay = (d) => d.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
 
-function range(v, def) {
-  const m = String(v ?? '').match(/(\d+)\s*(?:[-–]\s*(\d+))?/);
+/**
+ * "1-2", "2 days", "24 hours", "24-48 hrs" or Bangla ("২৪ ঘণ্টা", "১-২ দিন") → [min, max] days.
+ * Hours are rounded up to whole days; a bare number above 14 is taken as hours, since no
+ * delivery takes that many days. Always 0–14 days.
+ */
+export function range(v, def) {
+  const t = String(v ?? '').replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d));
+  const m = t.match(/(\d+)\s*(?:(?:[-–]|to|থেকে)\s*(\d+))?/i);
   if (!m) return def;
-  const a = +m[1], b = m[2] ? +m[2] : a;
-  return [Math.min(a, b), Math.max(a, b)];
+  let a = +m[1], b = m[2] ? +m[2] : a;
+  const hours = /h(ou)?rs?\b|\bh\b|ঘণ্টা|ঘন্টা/i.test(t) || (!/day|দিন/i.test(t) && Math.max(a, b) > 14);
+  if (hours) { a = Math.ceil(a / 24); b = Math.ceil(b / 24); }
+  const c = (n) => Math.min(14, Math.max(0, n));
+  return [c(Math.min(a, b)), c(Math.max(a, b))];
 }
 
 export function times() {

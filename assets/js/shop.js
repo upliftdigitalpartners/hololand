@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { loadData } from './ai.js';
 import { createSizer } from './size.js';
 import { track } from './track.js';
-import { left, soldOut, lowNote } from './stock.js';
+import { left, soldOut, lowNote, onlinePay } from './stock.js';
 import { deliveryLine, areaEta } from './delivery.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -282,14 +282,36 @@ function updateSummary() {
   $('[data-co-subtotal]').textContent = money(sub);
   $('[data-co-delivery]').textContent = fee == null ? 'Choose area' : fee ? money(fee) : 'Free';
   $('[data-co-total]').textContent = money(sub - disc + (fee || 0));
+  const online = f.elements.payment.value === 'online';
+  $('[data-pay-note]').hidden = $('[data-pay-email]').hidden = !online;
+  // Only the label text changes: replacing the button's contents mid-tap (a field's change event fires on blur) would swallow the tap.
+  const label = $('[data-place-order] span');
+  if (label && !$('[data-place-order]').disabled && label.textContent !== placeLabel()) label.textContent = placeLabel();
   $('[data-co-eta]').textContent = f.elements.area.value ? `🚚 ${areaEta(f.elements.area.value)}` : '';
 }
+
+/** “Pay online” replaces the manual bKash option once SSLCommerz is set up on the Worker. */
+function setupPayChoices() {
+  const f = $('[data-checkout-form]');
+  const on = onlinePay();
+  for (const [k, show] of [['online', on], ['bkash', !on]]) {
+    const label = $(`[data-pay="${k}"]`);
+    label.hidden = !show;
+    label.querySelector('input').disabled = !show;
+  }
+  if (!f.elements.payment.value) f.elements.payment.value = 'cod';
+}
+const placeLabel = () => {
+  const f = $('[data-checkout-form]');
+  return f.elements.payment.value === 'online' && f.elements.area.value ? `Pay ${$('[data-co-total]').textContent} securely` : 'Place order';
+};
 
 const REMEMBER = 'hl.customer';
 function checkout() {
   if (!bag.length) return;
   if (!CONFIG.stylistEndpoint) { whatsappCheckout(); return; }
   const f = $('[data-checkout-form]');
+  setupPayChoices();
   try {
     const saved = JSON.parse(localStorage.getItem(REMEMBER) || 'null');
     if (saved) {
@@ -332,7 +354,7 @@ async function placeOrder(e) {
   btn.disabled = true; btn.innerHTML = '<span>Placing order…</span>';
   const body = {
     name: v('name'), phone, area: f.elements.area.value, address: v('address'), payment: f.elements.payment.value,
-    note: v('note'), gift: giftNote, website: f.elements.website.value, promo: promo?.code || '',
+    note: v('note'), gift: giftNote, website: f.elements.website.value, promo: promo?.code || '', email: f.elements.payment.value === 'online' ? v('email') : '',
     items: bag.map((l) => ({ id: l.id, size: l.size, qty: l.qty })),
   };
   try {
@@ -346,6 +368,14 @@ async function placeOrder(e) {
       else localStorage.removeItem(REMEMBER);
     } catch { /* ignore */ }
     track('order', { value: data.total });
+    if (body.payment === 'online' && data.payment !== 'cod') {
+      // The order is saved (unpaid). Off to SSLCommerz; it sends the customer back to the tracking page.
+      try { sessionStorage.setItem('hl.lastOrder', JSON.stringify({ id: data.id, phone: body.phone })); } catch { /* ignore */ }
+      bag = []; giftNote = ''; saveBag(); renderBag();
+      btn.innerHTML = '<span>Opening secure payment…</span>';
+      location.href = data.payUrl || `track.html?id=${encodeURIComponent(data.id)}&pay=failed`;
+      return;
+    }
     showDone(data, body);
     bag = []; giftNote = '';
     saveBag(); renderBag();
@@ -354,7 +384,7 @@ async function placeOrder(e) {
     // Show our own validation messages; anything else gets a plain apology and the WhatsApp fallback.
     coError([400, 409, 429].includes(err.status) ? err.message : 'Sorry, we couldn’t place your order right now. Please try again in a minute, or order on WhatsApp.', true);
   } finally {
-    btn.disabled = false; btn.innerHTML = '<span>Place order</span>';
+    if (!btn.textContent.includes('secure payment')) { btn.disabled = false; btn.innerHTML = `<span>${placeLabel()}</span>`; }
   }
 }
 

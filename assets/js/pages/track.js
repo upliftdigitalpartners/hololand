@@ -37,8 +37,41 @@ boot('track', async () => {
     else if (saved?.phone) form.elements.phone.value = saved.phone;
   } catch { /* ignore */ }
 
+  const api = async (path, body) => {
+    const res = await fetch(`${CONFIG.stylistEndpoint.replace(/\/$/, '')}/${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, credentials: 'omit', body: JSON.stringify(body),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || 'Please try again in a minute.');
+    return d;
+  };
+  const back = q.get('pay'); // paid | failed | cancelled, when SSLCommerz sends the customer back
+  let current = null;
+
+  // Online payment: paid, or not yet (with "Pay now" and "Cash on delivery instead").
+  const showPay = (o) => {
+    const box = $('[data-t-pay]');
+    const unpaid = o.payment === 'online' && o.pay_status !== 'paid';
+    box.hidden = o.payment !== 'online' || (unpaid && o.status !== 'new');
+    box.className = `track__pay ${unpaid ? 'is-due' : 'is-paid'}`;
+    if (box.hidden) return;
+    box.innerHTML = !unpaid
+      ? `<strong>💳 Paid online · ${money(o.total)}</strong><span>Thank you! Nothing to pay on delivery.</span>`
+      : `<strong>${back === 'cancelled' ? 'You cancelled the payment' : back === 'failed' ? 'The payment didn’t go through' : 'Waiting for your payment'}</strong>
+         <span>Your order is saved. Pay ${money(o.total)} online, or switch to cash on delivery. Unpaid online orders are cancelled after about an hour.</span>
+         <div class="track__pay-btns">
+           <button class="btn btn--solid btn--sm" data-pay-retry><span>Pay ${money(o.total)} now</span></button>
+           <button class="btn btn--ghost btn--sm" data-pay-cod><span>Pay cash on delivery instead</span></button>
+         </div>
+         <p class="checkout__err" data-pay-err role="alert" hidden></p>`;
+  };
+
   const show = (o) => {
-    const [h, sub] = HEADLINE[o.status] || HEADLINE.new;
+    current = o;
+    let [h, sub] = HEADLINE[o.status] || HEADLINE.new;
+    if (o.payment === 'online' && o.pay_status === 'paid' && o.status === 'new') [h, sub] = ['Payment received', 'Thank you! We’ll call or message you soon to confirm delivery.'];
+    if (o.payment === 'online' && o.pay_status !== 'paid' && o.status === 'new') [h, sub] = ['Almost done', 'Your order is saved but not paid yet.'];
+    if (o.payment === 'online' && o.pay_status !== 'paid' && o.status === 'cancelled') sub = 'This order was cancelled because the online payment wasn’t completed. You’re welcome to order again.';
     $('[data-t-id]').textContent = `${o.id} · placed ${fmtDate(o.placed)}`;
     $('[data-t-headline]').textContent = h;
     $('[data-t-sub]').textContent = sub;
@@ -56,8 +89,30 @@ boot('track', async () => {
     $('[data-t-items]').innerHTML = o.items.map((l) => `<span>${esc(l.name)} · ${esc(l.size)} × ${l.qty}</span><span>${money(l.price * l.qty)}</span>`).join('')
       + (o.discount ? `<span>Discount</span><span>−${money(o.discount)}</span>` : '')
       + `<span>Delivery</span><span>${o.delivery ? money(o.delivery) : 'Free'}</span><strong>Total</strong><strong>${money(o.total)}</strong>`;
+    showPay(o);
     $('[data-track-result]').hidden = false;
   };
+
+  $('[data-t-pay]').addEventListener('click', async (e) => {
+    const retry = e.target.closest('[data-pay-retry]'), cod = e.target.closest('[data-pay-cod]');
+    if (!(retry || cod) || !current) return;
+    const btn = retry || cod;
+    const perr = $('[data-pay-err]');
+    btn.disabled = true; perr.hidden = true;
+    const body = { id: current.id, phone: normalizePhone(form.elements.phone.value) };
+    try {
+      if (retry) {
+        const d = await api('pay-retry', body);
+        btn.innerHTML = '<span>Opening secure payment…</span>';
+        location.href = d.payUrl;
+        return;
+      }
+      await api('pay-cod', body);
+      show(await api('order-status', body));
+      $('[data-t-sub]').textContent = 'Switched to cash on delivery. We’ll call or message you soon to confirm.';
+    } catch (ex) { perr.textContent = ex.message; perr.hidden = false; }
+    btn.disabled = false;
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -69,12 +124,7 @@ boot('track', async () => {
     const btn = $('[data-track-go]');
     btn.disabled = true;
     try {
-      const res = await fetch(`${CONFIG.stylistEndpoint.replace(/\/$/, '')}/order-status`, {
-        method: 'POST', headers: { 'Content-Type': 'text/plain' }, credentials: 'omit', body: JSON.stringify({ id, phone }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error || 'Please try again in a minute.');
-      show(d);
+      show(await api('order-status', { id, phone }));
       $('[data-track-result]').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (ex) {
       $('[data-track-result]').hidden = true;
@@ -82,4 +132,5 @@ boot('track', async () => {
     } finally { btn.disabled = false; }
   });
   if (form.elements.id.value && form.elements.phone.value) form.requestSubmit();
+  else if (back && form.elements.id.value) { err.textContent = 'Enter the mobile number you ordered with to see your payment.'; err.hidden = false; form.elements.phone.focus(); }
 });

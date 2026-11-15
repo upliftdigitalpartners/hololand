@@ -291,6 +291,12 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
 .track__courier[hidden] { display: none; }
 .track__courier strong { color: var(--cream); }
 .track__courier .link-btn { margin-top: 4px; }
+.track__pay { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--ink); font-size: 14px; color: var(--cream-2); }
+.track__pay[hidden] { display: none; }
+.track__pay strong { color: var(--cream); }
+.track__pay.is-paid { border-color: rgba(46, 160, 67, .5); }
+.track__pay.is-due { border-color: var(--orange); }
+.track__pay-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .track__items { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; color: var(--cream-2); font-variant-numeric: tabular-nums; }
 .track__items strong { color: var(--cream); padding-top: 6px; }
 .track__help { margin: 0; font-size: 13px; color: var(--muted); }
