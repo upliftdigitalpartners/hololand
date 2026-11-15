@@ -2,6 +2,22 @@
   "_note": "Prices, names and descriptions are placeholders - edit freely. 'images' are basenames in assets/img (the -lg / -sm suffix is added by the site).",
   "products": [
     {
+      "id": "jh-7",
+      "code": "JH-7",
+      "name": "Solid Zipper jacket",
+      "cat": "men",
+      "type": "JACKET",
+      "price": 2090,
+      "color": "block",
+      "hex": "#1c1c1c",
+      "images": [
+        "item-mwhpq57x"
+      ],
+      "fabric": "",
+      "tags": [],
+      "desc": "Versatile men's black zip-up jacket. Designed with a classic collared neckline, clean silver-toned zipper detailing, and a comfortable tailored fit, this lightweight jacket is the ultimate layering piece for transitional weather and effortless everyday styling."
+    },
+    {
       "id": "jh-06",
       "code": "JH-06",
       "name": "Minimal  Ash button shacket",
