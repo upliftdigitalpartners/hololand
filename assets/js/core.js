@@ -7,6 +7,7 @@ import { stockLoaded } from './stock.js';
 import { renderLayout, refreshCategoryLinks } from './layout.js';
 import { initStore } from './shop.js';
 import { applyContent } from './content.js';
+import { initPixel } from './pixel.js';
 
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
 gsap.registerPlugin(ScrollTrigger, SplitText);
@@ -236,6 +237,7 @@ export async function boot(page, init) {
   try {
     const products = await productsReq;
     await applyContent(products).catch((err) => console.warn('content.json', err));
+    initPixel(); // Meta Pixel, only if a Pixel ID is set in the admin
     refreshCategoryLinks(page);
     await stockLoaded(); // so cards and sizes show what's sold out
     applyStatic();

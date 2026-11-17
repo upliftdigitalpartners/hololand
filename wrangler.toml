@@ -70,3 +70,4 @@ crons = ["17 * * * *", "0 3 * * *"]
 #   STEADFAST_API_KEY, STEADFAST_SECRET_KEY  (optional: Steadfast merchant panel → API, for booking parcels)
 #   SSLCZ_STORE_ID, SSLCZ_STORE_PASSWORD  (optional: SSLCommerz store, for "Pay online" at checkout)
 # Text variable SSLCZ_LIVE = "true" switches SSLCommerz from the sandbox (test payments) to real payments.
+#   META_CAPI_TOKEN  (optional: Meta Conversions API token; the Pixel ID itself is set in the admin)

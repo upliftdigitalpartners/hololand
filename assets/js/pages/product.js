@@ -3,7 +3,7 @@ import { catOf, catUrl, GROUPS } from '../categories.js';
 import { soldOut } from '../stock.js';
 import { deliveryLine } from '../delivery.js';
 import { priceOf, priceHTML } from '../shop.js';
-import { img, money, esc, safeHex, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady } from '../shop.js';
+import { img, money, esc, safeHex, cardHTML, getProduct, addToBag, openBag, toast, askLink, renderReviews, ratingOf, stars, reviewsReady, viewContent } from '../shop.js';
 import { sizerHTML } from '../layout.js';
 import { createSizer } from '../size.js';
 import { loadData } from '../ai.js';
@@ -14,6 +14,7 @@ function setMeta(p) {
   const url = `https://hololandbd.com/product.html?id=${encodeURIComponent(p.id)}`;
   const image = `https://hololandbd.com/${img(p.images[0], 'lg')}`;
   document.title = title;
+  viewContent(p);
   const set = (sel, attr, val) => { const el = $(sel); if (el) el.setAttribute(attr, val); };
   set('meta[name="description"]', 'content', desc);
   set('meta[property="og:title"]', 'content', title);

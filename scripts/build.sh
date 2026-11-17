@@ -38,6 +38,19 @@ for (const html of fs.readdirSync('_site').filter((f) => f.endsWith('.html'))) {
 JS
 rm _site/meta.json
 
+# Facebook domain verification (admin → Texts & settings → Facebook & Instagram ads): Meta's checker reads
+# the homepage HTML without running scripts, so the tag is written in here. Letters and digits only.
+node - <<'JS'
+const fs = require('fs');
+let code = '';
+try { code = String(JSON.parse(fs.readFileSync('_site/assets/data/content.json', 'utf8')).settings?.meta?.domainVerification || ''); } catch { /* none */ }
+if (/^[a-z0-9]{10,64}$/i.test(code)) {
+  const f = '_site/index.html';
+  fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace('</head>', `  <meta name="facebook-domain-verification" content="${code}" />\n</head>`));
+  console.log('Facebook domain verification tag added');
+}
+JS
+
 # Minified CSS
 for css in assets/css/*.css; do $ESBUILD "$css" --minify --log-level=warning --outfile="_site/$css" --allow-overwrite; done
 echo "Built _site"

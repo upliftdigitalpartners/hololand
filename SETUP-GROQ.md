@@ -199,6 +199,19 @@ Customers can choose **Pay online** at checkout (bKash, Nagad, Rocket, Visa/Mast
 
 ---
 
+## Step 11: Facebook & Instagram ads, Meta Pixel (optional)
+
+The product catalog feed for Commerce Manager is already set up (Step 8). The Pixel tells Meta who views, adds to bag, starts checkout and buys, so ads can optimise for sales and retarget. The item ids match the catalog, so catalog (dynamic) ads work too.
+
+1. **Pixel ID.** Meta Events Manager → Data sources → your pixel (dataset) → copy the ID (numbers only). In the admin: **Texts & settings → Facebook & Instagram ads → Meta Pixel ID** → **Publish**. Pixel events start on the next page load.
+2. **Domain verification** (if Business Settings → Brand safety → Domains asks for it): choose *Meta-tag verification*, copy the tag, and paste it into **Facebook domain verification code** in the same admin section (the code is picked out of the tag automatically) → **Publish**. After about a minute the homepage carries the tag; press **Verify** in Meta.
+3. **Conversions API (recommended).** Events Manager → the pixel → Settings → Conversions API → **Generate access token**. In Cloudflare → **hololand → Settings → Variables and Secrets** add a **Secret** `META_CAPI_TOKEN` with that token → **Deploy**. Purchases are then also sent from the server, and Meta counts each order once (same event id from browser and server).
+4. **Check.** The Worker address shows `"metaPixel": true` and `"metaCapi": true`. To watch events arrive, Events Manager → Test events gives a code: add it as a Text variable `META_TEST_CODE` (server events then appear there; remove it afterwards). Browser events show up when you open the site using Meta's test link.
+
+What's sent: PageView on every page; ViewContent (product page or quick view); AddToCart; InitiateCheckout; Purchase with the items and the total in BDT. Cash-on-delivery orders count as a purchase when placed; online orders when paid (SSLCommerz test payments are never sent). Visitors whose browser sends Global Privacy Control or Do Not Track are not tracked. The Privacy Policy describes all of this.
+
+---
+
 ## If something doesn't work
 
 | What you see | Fix |
