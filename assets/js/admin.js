@@ -69,6 +69,7 @@ $('[data-login-form]').addEventListener('submit', async (e) => {
   const el = $('[data-login-status]');
   status(el, 'Signing in…');
   try {
+    showPassword(false);
     const { token: t, expires } = await api('/admin/login', { password: e.target.elements.password.value });
     token = t;
     try { sessionStorage.setItem('hl.admin', JSON.stringify({ token: t, expires })); } catch { /* ignore */ }
@@ -1363,6 +1364,23 @@ $('[data-export-go]').addEventListener('click', async () => {
   $('[data-export-to]').value = today;
   $('[data-export-from]').value = new Date(Date.now() + 6 * 3600e3 - 29 * 86400e3).toISOString().slice(0, 10);
 })();
+
+/* Login: Show / Hide the password while typing it (hidden again when signing in). */
+function showPassword(on) {
+  const input = $('#admin-password'), btn = $('[data-pw-toggle]');
+  if (!input || !btn) return;
+  input.type = on ? 'text' : 'password';
+  btn.textContent = on ? 'Hide' : 'Show';
+  btn.setAttribute('aria-pressed', String(on));
+  btn.setAttribute('aria-label', on ? 'Hide password' : 'Show password');
+}
+$('[data-pw-toggle]')?.addEventListener('click', () => {
+  const input = $('#admin-password');
+  const { selectionStart: a, selectionEnd: b } = input;
+  showPassword(input.type === 'password');
+  input.focus();
+  try { input.setSelectionRange(a, b); } catch { /* ignore */ }
+});
 
 /* ---------------- resume session ---------------- */
 try {

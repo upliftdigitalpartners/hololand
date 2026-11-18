@@ -29,7 +29,13 @@
       <svg class="login__mark"><use href="#mark" /></svg>
       <h1>Hololand <em>admin</em></h1>
       <p>Sign in to edit products, prices and site texts.</p>
-      <label class="f"><span>Password</span><input type="password" name="password" autocomplete="current-password" required autofocus /></label>
+      <div class="f">
+        <label for="admin-password">Password</label>
+        <div class="pw">
+          <input id="admin-password" type="password" name="password" autocomplete="current-password" required autofocus />
+          <button type="button" class="pw__toggle" data-pw-toggle aria-controls="admin-password" aria-pressed="false" aria-label="Show password">Show</button>
+        </div>
+      </div>
       <button class="btn btn--solid btn--wide"><span>Sign in</span></button>
       <p class="status" data-login-status></p>
     </form>

@@ -24,6 +24,12 @@ body.adm { background: var(--ink); min-height: 100vh; }
 .login h1 { font-family: var(--serif); font-weight: 400; font-size: 44px; line-height: 1; margin: 0; }
 .login h1 em { color: var(--orange-2); }
 .login p { margin: 0; color: var(--cream-2); font-size: 14px; }
+/* Password field with a Show / Hide button inside it */
+.pw { position: relative; }
+.adm .pw input { padding-right: 76px; }
+.pw__toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); min-height: 32px; padding: 6px 12px; border-radius: 8px; background: transparent; color: var(--cream-2); font: 600 12px var(--sans); letter-spacing: .02em; cursor: pointer; }
+.pw__toggle:hover { color: var(--orange-2); background: rgba(var(--fg-rgb), .06); }
+.pw__toggle:focus-visible { outline: 2px solid var(--orange-2); outline-offset: 1px; }
 
 /* App shell */
 .app[hidden] { display: none; }
