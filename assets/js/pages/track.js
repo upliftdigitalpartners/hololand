@@ -1,6 +1,6 @@
 import { boot, $ } from '../core.js';
 import { CONFIG } from '../config.js';
-import { money, esc, normalizePhone, pixelPurchase } from '../shop.js';
+import { money, esc, normalizePhone, pixelPurchase, MY_ORDERS } from '../shop.js';
 
 // What the courier's status means for the customer.
 const COURIER = {
@@ -135,6 +135,25 @@ boot('track', async () => {
       err.textContent = ex.message; err.hidden = false;
     } finally { btn.disabled = false; }
   });
+  // Orders placed on this phone: one tap to see each, no typing.
+  const mine = $('[data-track-mine]');
+  const readMine = () => { try { return JSON.parse(localStorage.getItem(MY_ORDERS) || '[]').filter((o) => /^HL-\d{6}-\d{3,}$/.test(o.id) && o.phone); } catch { return []; } };
+  const renderMine = () => {
+    const list = readMine();
+    mine.hidden = !list.length;
+    mine.innerHTML = `<div class="track__mine-head"><strong>Your orders on this phone</strong><button type="button" class="link-btn" data-mine-forget>Forget these</button></div>`
+      + list.map((o) => `<button type="button" class="track__mine-item" data-mine="${esc(o.id)}"><span><b>${esc(o.id)}</b><small>${new Date(o.ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${o.n} item${o.n === 1 ? '' : 's'}</small></span><span>${money(o.total || 0)} →</span></button>`).join('');
+  };
+  renderMine();
+  mine.addEventListener('click', (e) => {
+    if (e.target.closest('[data-mine-forget]')) { try { localStorage.removeItem(MY_ORDERS); } catch { /* ignore */ } renderMine(); return; }
+    const b = e.target.closest('[data-mine]');
+    const o = b && readMine().find((x) => x.id === b.dataset.mine);
+    if (!o) return;
+    form.elements.id.value = o.id; form.elements.phone.value = o.phone;
+    form.requestSubmit();
+  });
+
   if (form.elements.id.value && form.elements.phone.value) form.requestSubmit();
   else if (back && form.elements.id.value) { err.textContent = 'Enter the mobile number you ordered with to see your payment.'; err.hidden = false; form.elements.phone.focus(); }
 });

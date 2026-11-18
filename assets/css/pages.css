@@ -275,6 +275,14 @@ body.has-announce .page { padding-top: calc(var(--nav-h) + 58px); }
 /* ============ Track your order ============ */
 .track { padding: 0 var(--gutter) clamp(80px, 10vw, 140px); display: grid; gap: 24px; max-width: 720px; }
 .track__form { display: grid; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 22px; background: var(--ink-2); }
+.track__mine { display: grid; gap: 8px; padding: 18px; border: 1px solid var(--line); border-radius: 22px; background: var(--ink-2); }
+.track__mine[hidden] { display: none; }
+.track__mine-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 4px; font-size: 14px; color: var(--cream); }
+.track__mine-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 14px; text-align: left; color: var(--cream-2); font-size: 14px; }
+.track__mine-item:hover { border-color: var(--orange); }
+.track__mine-item span:first-child { display: grid; gap: 2px; }
+.track__mine-item b { color: var(--cream); font-family: var(--mono, monospace); font-weight: 600; letter-spacing: .02em; }
+.track__mine-item small { color: var(--muted); font-size: 12px; }
 .track__result[hidden] { display: none; }
 .track__result { display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 22px; background: var(--ink-2); }
 .track__head h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 5vw, 48px); line-height: 1; margin: 8px 0 6px; }

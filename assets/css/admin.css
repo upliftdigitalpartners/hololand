@@ -332,3 +332,7 @@ body.adm { background: var(--ink); min-height: 100vh; }
   .pl__items, .pl__note, .pl__meta { font-size: 11px; }
   @page { margin: 6mm; }
 }
+
+/* Order card: the one-tap next step */
+.onext { font-weight: 700; }
+.onext-wait { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 99px; border: 1px dashed var(--line-2); color: var(--muted); font-size: 13px; }

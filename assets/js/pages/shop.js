@@ -1,5 +1,7 @@
 import { boot, $, $$, animateCards } from '../core.js';
 import { cardHTML, reviewsReady, esc, priceOf, onSale } from '../shop.js';
+import { matchProducts } from '../search.js';
+import { FAMILIES, family } from '../colours.js';
 import { categories, catOf, catTitle, GROUPS } from '../categories.js';
 
 const ALL = { title: 'The full <em>edit</em>', lede: 'Festive panjabis, soft winter knits and more, designed in Chittagong.', crumb: 'Shop', doc: 'Shop' };
@@ -11,25 +13,6 @@ const groupHead = (g) => ({
 });
 const OCCASIONS = { eid: 'Eid', wedding: 'Wedding', festive: 'Festive', evening: 'Evening', office: 'Office', casual: 'Casual', winter: 'Winter', gift: 'Gift' };
 const PRICES = { u2500: ['Under ৳2,500', 0, 2500], m3500: ['৳2,500 – ৳3,500', 2500, 3500], o3500: ['৳3,500+', 3500, 1e9] };
-const FAMILIES = { neutral: ['Neutrals', '#e9e4da'], dark: ['Black & charcoal', '#222'], red: ['Red & pink', '#b8344f'], warm: ['Mustard & sand', '#c8861f'], green: ['Green', '#2f5a3c'], blue: ['Blue', '#1f5a8a'], purple: ['Purple & lilac', '#8f6aa6'] };
-
-function family(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
-  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-  let h = 0;
-  if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  h = (h * 60 + 360) % 360;
-  if (l < 0.22 && s < 0.35) return 'dark';
-  if (s < 0.22 || l > 0.86) return 'neutral';
-  if (h < 20 || h >= 330) return 'red';
-  if (h < 65) return l > 0.7 ? 'neutral' : 'warm';
-  if (h < 170) return 'green';
-  if (h < 260) return 'blue';
-  return 'purple';
-}
-
 boot('shop', async ({ products, lenis }) => {
   const params = new URLSearchParams(location.search);
   const cats = categories().filter((c) => products.some((p) => p.cat === c.id));
@@ -41,6 +24,7 @@ boot('shop', async ({ products, lenis }) => {
     col: new Set((params.get('col') || '').split(',').filter((x) => FAMILIES[x])),
     price: PRICES[params.get('price')] || params.get('price') === 'sale' ? params.get('price') : '',
     sort: params.get('sort') || 'featured',
+    q: (params.get('q') || '').trim().slice(0, 60),
   };
   // A section with a single category just shows that category.
   const inGroup = (g) => cats.filter((c) => c.group === g);
@@ -73,6 +57,7 @@ boot('shop', async ({ products, lenis }) => {
     if (state.col.size) q.set('col', [...state.col].join(','));
     if (state.price) q.set('price', state.price);
     if (state.sort !== 'featured') q.set('sort', state.sort);
+    if (state.q) q.set('q', state.q);
     history.replaceState(null, '', `shop.html${q.toString() ? `?${q}` : ''}`);
     // Keep the header's Men/Women/… highlight in step with the tab
     const active = state.cat !== 'all' ? catOf(state.cat).group : state.group || 'shop';
@@ -86,8 +71,9 @@ boot('shop', async ({ products, lenis }) => {
   function render(animate = true) {
     const cc = state.cat !== 'all' ? catOf(state.cat) : null;
     const c = cc ? { title: italicLast(catTitle(cc)), lede: cc.lede, crumb: cc.name, doc: catTitle(cc) } : state.group ? groupHead(state.group) : ALL;
-    $('[data-shop-title]').innerHTML = c.title;
+    $('[data-shop-title]').innerHTML = state.q ? `Results for <em>“${esc(state.q)}”</em>` : c.title;
     $('[data-shop-lede]').textContent = c.lede;
+    if (state.q) $('[data-shop-lede]').innerHTML = '<button class="link-btn" data-q-clear>Clear search and show everything</button>';
     $('[data-crumb]').textContent = c.crumb;
     document.title = `${c.doc} — Hololand`;
     $$('[data-tabs] button').forEach((b) => b.classList.toggle('is-active', b.dataset.cat === state.cat));
@@ -96,6 +82,8 @@ boot('shop', async ({ products, lenis }) => {
     $$('[data-price]').forEach((b) => b.classList.toggle('is-active', state.price === b.dataset.price));
 
     let list = products.filter((p) => (state.cat === 'all' ? !state.group || catOf(p.cat).group === state.group : p.cat === state.cat));
+    // A search keeps relevance order (best match first) unless another sort is picked.
+    if (state.q) { const hits = matchProducts(products, state.q); list = state.sort === 'featured' ? hits.filter((p) => list.includes(p)) : list.filter((p) => hits.includes(p)); }
     if (state.occ.size) list = list.filter((p) => p.tags.some((t) => state.occ.has(t)));
     if (state.col.size) list = list.filter((p) => state.col.has(fam.get(p.id)));
     if (state.price && PRICES[state.price]) { const [, lo, hi] = PRICES[state.price]; list = state.price === 'sale' ? list.filter(onSale) : list.filter((p) => priceOf(p) >= lo && priceOf(p) < hi); }
@@ -113,6 +101,7 @@ boot('shop', async ({ products, lenis }) => {
     sync();
   }
 
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-q-clear]')) { state.q = ''; render(); } });
   $('[data-tabs]').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) { state.cat = b.dataset.cat; render(); } });
   $('[data-sort]').addEventListener('change', (e) => { state.sort = e.target.value; render(); });
   $('[data-filters]').addEventListener('click', (e) => {

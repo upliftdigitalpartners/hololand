@@ -57,6 +57,7 @@ function header(page) {
     </nav>
     <div class="nav__right">
       <span class="weather-chip" data-weather hidden></span>
+      <button class="search-btn" data-search-open data-magnetic aria-label="Search products">${SEARCH_ICON}</button>
       <button class="bag-btn" data-open-bag data-magnetic>${BAG_ICON}<span class="sr-only">Open bag, items: </span><span class="bag-btn__count" data-bag-count>0</span></button>
       <button class="menu-btn" data-menu aria-label="Menu" aria-expanded="false"><i></i><i></i></button>
     </div>
@@ -99,7 +100,19 @@ function footer() {
   </footer>`;
 }
 
+const SEARCH_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>';
+
 const OVERLAYS = `
+  <div class="search" data-search hidden>
+    <div class="search__panel" role="dialog" aria-modal="true" aria-label="Search products" data-lenis-prevent>
+      <form class="search__bar" data-search-form role="search" action="shop.html">
+        ${SEARCH_ICON}
+        <input type="search" name="q" data-search-input placeholder="Search name, code or colour" autocomplete="off" autocapitalize="off" enterkeyhint="search" aria-label="Search products" aria-controls="search-results" />
+        <button type="button" class="search__close" data-search-close>Cancel</button>
+      </form>
+      <div class="search__results" id="search-results" data-search-results aria-live="polite"></div>
+    </div>
+  </div>
   <div class="cursor" aria-hidden="true"><div class="cursor__ring"><span class="cursor__label"></span></div><div class="cursor__dot"></div></div>
   <div class="grain" aria-hidden="true"></div>
 
@@ -143,6 +156,10 @@ const OVERLAYS = `
             <div class="gift-note__head"><span class="mono">🎁 Gift message</span><button class="link-btn" data-gift-note-clear>Remove</button></div>
             <p data-gift-note-text></p>
           </div>
+          <div class="freebar" data-freebar hidden>
+            <p data-freebar-text></p>
+            <div class="freebar__track" aria-hidden="true"><i data-freebar-fill></i></div>
+          </div>
           <div class="drawer__total"><span>Subtotal</span><strong data-bag-total>৳0</strong></div>
           <button class="btn btn--solid btn--wide" data-checkout><span>Checkout</span></button>
           <p class="drawer__note" data-delivery-note></p>
@@ -151,16 +168,17 @@ const OVERLAYS = `
 
       <form class="drawer__view checkout" data-view="checkout" data-checkout-form novalidate hidden>
         <div class="checkout__body">
-          <label class="cf"><span>Your name</span><input name="name" autocomplete="name" maxlength="60" required /></label>
-          <label class="cf"><span>Mobile number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="01XXXXXXXXX" maxlength="20" required /></label>
+          <label class="cf"><span>Your name</span><input name="name" autocomplete="name" maxlength="60" required aria-describedby="msg-name" /><small class="cf__msg" id="msg-name" data-msg="name" aria-live="polite"></small></label>
+          <label class="cf"><span>Mobile number</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="01XXXXXXXXX" maxlength="20" required aria-describedby="msg-phone" /><small class="cf__msg" id="msg-phone" data-msg="phone" aria-live="polite"></small></label>
           <fieldset class="cf"><legend>Delivery area</legend>
             <div class="choice" data-area>
               <label><input type="radio" name="area" value="inside" required /><span>Inside Chittagong city<small data-fee="inside"></small></span></label>
               <label><input type="radio" name="area" value="outside" /><span>Outside Chittagong<small data-fee="outside"></small></span></label>
             </div>
+            <small class="cf__msg" id="msg-area" data-msg="area" aria-live="polite"></small>
             <small class="co-eta" data-co-eta></small>
           </fieldset>
-          <label class="cf"><span>Full address</span><textarea name="address" rows="3" autocomplete="street-address" maxlength="300" placeholder="House, road, area, thana, district" required></textarea></label>
+          <label class="cf"><span>Full address</span><textarea name="address" rows="3" autocomplete="street-address" maxlength="300" placeholder="House, road, area, thana, district" required aria-describedby="msg-address"></textarea><small class="cf__msg" id="msg-address" data-msg="address" aria-live="polite"></small></label>
           <fieldset class="cf"><legend>Payment</legend>
             <div class="choice">
               <label><input type="radio" name="payment" value="cod" checked /><span>Cash on delivery<small>Pay when it arrives</small></span></label>
