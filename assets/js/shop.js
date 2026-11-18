@@ -5,6 +5,7 @@ import { createSizer } from './size.js';
 import { track } from './track.js';
 import { left, soldOut, lowNote, onlinePay } from './stock.js';
 import { deliveryLine, areaEta } from './delivery.js';
+import { px, variantId, fbCookies } from './pixel.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -118,10 +119,14 @@ export function priceHTML(p) {
 let current = null;
 let qvSizer = null;
 
+/** Meta Pixel: someone looked at a product (product page or quick view). */
+export const viewContent = (p) => px('ViewContent', { content_ids: [p.id], content_type: 'product_group', content_name: p.name, value: priceOf(p) });
+
 export function openQuickView(id) {
   const p = byId.get(id);
   if (!p) return;
   current = p;
+  viewContent(p);
   const m = $('[data-modal]');
   $('[data-qv-img]', m).src = img(p.images[0], 'lg');
   $('[data-qv-img]', m).alt = `${p.name}, ${p.color} ${p.type}`;
@@ -171,6 +176,8 @@ export function addToBag(id, size, qty = 1) {
   renderBag();
   toast(`${byId.get(id).name} (${size}) added to bag`);
   track('bag', { product: id });
+  const p = byId.get(id);
+  px('AddToCart', { content_ids: [variantId(id, size)], content_type: 'product', content_name: p.name, contents: [{ id: variantId(id, size), quantity: qty }], value: priceOf(p) * qty });
   return true;
 }
 
@@ -312,6 +319,7 @@ function checkout() {
   if (!CONFIG.stylistEndpoint) { whatsappCheckout(); return; }
   const f = $('[data-checkout-form]');
   setupPayChoices();
+  px('InitiateCheckout', { content_ids: bag.map((l) => variantId(l.id, l.size)), content_type: 'product', contents: bag.map((l) => ({ id: variantId(l.id, l.size), quantity: l.qty })), num_items: bag.reduce((n, l) => n + l.qty, 0), value: bagTotal() });
   try {
     const saved = JSON.parse(localStorage.getItem(REMEMBER) || 'null');
     if (saved) {
@@ -356,6 +364,7 @@ async function placeOrder(e) {
     name: v('name'), phone, area: f.elements.area.value, address: v('address'), payment: f.elements.payment.value,
     note: v('note'), gift: giftNote, website: f.elements.website.value, promo: promo?.code || '', email: f.elements.payment.value === 'online' ? v('email') : '',
     items: bag.map((l) => ({ id: l.id, size: l.size, qty: l.qty })),
+    ...fbCookies(), page: location.href.split('#')[0], // for matching the order to an ad (Meta), if ads tracking is on
   };
   try {
     const res = await fetch(`${CONFIG.stylistEndpoint.replace(/\/$/, '')}/order`, {
@@ -388,7 +397,14 @@ async function placeOrder(e) {
   }
 }
 
+/** Meta Pixel purchase; the same event id is sent from the server, so Meta counts the order once. */
+export function pixelPurchase(o) {
+  const items = o.items || [];
+  px('Purchase', { content_ids: items.map((l) => variantId(l.id, l.size)), content_type: 'product', contents: items.map((l) => ({ id: variantId(l.id, l.size), quantity: l.qty, item_price: l.price })), num_items: items.reduce((n, l) => n + l.qty, 0), value: o.total }, `purchase-${o.id}`);
+}
+
 function showDone(data, body) {
+  pixelPurchase(data);
   $('[data-done-title]').textContent = `Thank you, ${body.name.split(' ')[0]}!`;
   $('[data-done-id]').textContent = data.id;
   $('[data-done-text]').textContent = `We’ll call or message you on ${body.phone} to confirm${body.payment === 'bkash' ? ' and send bKash payment details' : ''}. Total ${money(data.total)}${data.delivery ? ` including ${money(data.delivery)} delivery` : ' with free delivery'}${data.discount ? `, after ${money(data.discount)} off with ${data.promo}` : ''}.`;

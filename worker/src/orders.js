@@ -28,7 +28,9 @@ export class Orders extends DurableObject {
     // Later columns: promo code + discount, and courier booking details.
     // Online payment (SSLCommerz): pay_status pending | paid | failed, the latest transaction id, and what the gateway reported.
     for (const col of ['stock_taken TEXT', 'promo TEXT', 'discount INTEGER', 'courier TEXT', 'consignment_id TEXT', 'tracking_code TEXT', 'courier_status TEXT', 'courier_at INTEGER',
-      'pay_status TEXT', 'pay_tran TEXT', 'pay_info TEXT', 'pay_tries INTEGER']) {
+      'pay_status TEXT', 'pay_tran TEXT', 'pay_info TEXT', 'pay_tries INTEGER',
+      // Browser details for the Meta purchase event of an online order, kept only until it's paid.
+      'meta TEXT']) {
       try { this.sql.exec(`ALTER TABLE orders ADD COLUMN ${col}`); } catch { /* already there */ }
     }
     this.sql.exec(`CREATE TABLE IF NOT EXISTS promos (
@@ -72,10 +74,10 @@ export class Orders extends DurableObject {
       id = `${prefix}${String(n).padStart(3, '0')}`;
     } while (this.sql.exec('SELECT 1 FROM orders WHERE id = ?', id).toArray().length);
     this.sql.exec(
-      `INSERT INTO orders (id, ts, status, name, phone, area, address, payment, note, gift, items, subtotal, delivery, total, updated, stock_taken, promo, discount, pay_status)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO orders (id, ts, status, name, phone, area, address, payment, note, gift, items, subtotal, delivery, total, updated, stock_taken, promo, discount, pay_status, meta)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       id, o.ts, 'new', o.name, o.phone, o.area, o.address, o.payment, o.note, o.gift, o.items, o.subtotal, o.delivery, total, o.ts, JSON.stringify(taken), o.promo || null, discount,
-      o.payment === 'online' ? 'pending' : null,
+      o.payment === 'online' ? 'pending' : null, o.meta || null,
     );
     return { id, discount, total };
   }
@@ -95,7 +97,7 @@ export class Orders extends DurableObject {
     for (const r of this.sql.exec('SELECT status, COUNT(*) AS n FROM orders GROUP BY status').toArray()) counts[r.status] = r.n;
     const page = rows.slice(0, limit);
     return {
-      orders: page.map((r) => ({ ...r, items: JSON.parse(r.items || '[]') })),
+      orders: page.map((r) => ({ ...r, meta: undefined, items: JSON.parse(r.items || '[]') })),
       more: rows.length > limit,
       counts,
       history: this.phoneHistory([...new Set(page.map((r) => r.phone))]),
@@ -137,6 +139,13 @@ export class Orders extends DurableObject {
     if (OFF.has(r.status)) await this.update(id, { status: 'new' }, now);
     this.sql.exec("UPDATE orders SET pay_status = 'paid', payment = 'online', pay_info = ?, updated = ? WHERE id = ?", JSON.stringify({ ...info, at: now }), now, id);
     return { already: false, order: await this.getOrder(id) };
+  }
+
+  /** The stored browser details, once used for the Meta purchase event, are deleted. */
+  async takeMeta(id) {
+    const r = this.sql.exec('SELECT meta FROM orders WHERE id = ?', id).toArray()[0];
+    this.sql.exec('UPDATE orders SET meta = NULL WHERE id = ?', id);
+    try { return JSON.parse(r?.meta || 'null') || {}; } catch { return {}; }
   }
 
   async markPayFailed(id, now = Date.now()) {
@@ -208,7 +217,7 @@ export class Orders extends DurableObject {
   async exportOrders(from, to, limit = 5000) {
     return this.sql.exec('SELECT * FROM orders ORDER BY ts ASC LIMIT 20000').toArray()
       .filter((r) => { const d = dayOf(r.ts); return d >= from && d <= to; })
-      .slice(0, limit).map((r) => ({ ...r, items: JSON.parse(r.items || '[]') }));
+      .slice(0, limit).map((r) => ({ ...r, meta: undefined, items: JSON.parse(r.items || '[]') }));
   }
 
   /** Numbers for the morning Telegram summary: one Bangladesh day, plus what's waiting now. */
@@ -359,8 +368,8 @@ export class Orders extends DurableObject {
     const r = this.sql.exec('SELECT * FROM orders WHERE id = ? AND phone = ?', id, phone).toArray()[0];
     if (!r) return null;
     return {
-      id: r.id, placed: r.ts, status: r.status, updated: r.updated, area: r.area, payment: r.payment, pay_status: r.pay_status,
-      items: JSON.parse(r.items || '[]').map((l) => ({ name: l.name, size: l.size, qty: l.qty, price: l.price })),
+      id: r.id, placed: r.ts, status: r.status, updated: r.updated, area: r.area, payment: r.payment, pay_status: r.pay_status, pay_test: String(r.pay_info || '').includes('"test":true'),
+      items: JSON.parse(r.items || '[]').map((l) => ({ id: l.id, name: l.name, size: l.size, qty: l.qty, price: l.price })),
       subtotal: r.subtotal, discount: r.discount || 0, delivery: r.delivery, total: r.total,
       courier: r.courier, tracking_code: r.tracking_code, courier_status: r.courier_status,
     };

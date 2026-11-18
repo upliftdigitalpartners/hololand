@@ -1,6 +1,6 @@
 import { boot, $ } from '../core.js';
 import { CONFIG } from '../config.js';
-import { money, esc, normalizePhone } from '../shop.js';
+import { money, esc, normalizePhone, pixelPurchase } from '../shop.js';
 
 // What the courier's status means for the customer.
 const COURIER = {
@@ -90,6 +90,10 @@ boot('track', async () => {
       + (o.discount ? `<span>Discount</span><span>−${money(o.discount)}</span>` : '')
       + `<span>Delivery</span><span>${o.delivery ? money(o.delivery) : 'Free'}</span><strong>Total</strong><strong>${money(o.total)}</strong>`;
     showPay(o);
+    // Back from paying online: the Meta Pixel purchase, once per order (not for SSLCommerz test payments).
+    if (back === 'paid' && o.payment === 'online' && o.pay_status === 'paid' && !o.pay_test) {
+      try { if (!sessionStorage.getItem(`hl.px.${o.id}`)) { pixelPurchase(o); sessionStorage.setItem(`hl.px.${o.id}`, '1'); } } catch { /* ignore */ }
+    }
     $('[data-track-result]').hidden = false;
   };
 

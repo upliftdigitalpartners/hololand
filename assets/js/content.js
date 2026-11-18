@@ -30,6 +30,7 @@ export async function applyContent(products) {
     CONFIG.deliveryTimes = { insideDays: set.delivery.insideDays, outsideDays: set.delivery.outsideDays, cutoff: set.delivery.cutoff, skipFriday: set.delivery.skipFriday };
   }
   CONFIG.eid = set.eid || {};
+  CONFIG.meta = set.meta || {};
 
   $$('[data-content]').forEach((el) => {
     const v = texts[el.dataset.content];

@@ -29,12 +29,14 @@
  *   STT_MODEL        text     optional, default whisper-large-v3
  *   SSLCZ_STORE_ID / SSLCZ_STORE_PASSWORD  secrets  online payment (SSLCommerz); SSLCZ_LIVE = "true" for real money (see payments.js)
  *   PAY_EXPIRE_MINUTES  text  optional, default 60: unpaid online orders are cancelled after this long (checked hourly)
+ *   META_CAPI_TOKEN  secret   optional: Meta Conversions API token (purchases sent from the server too; see meta.js)
  */
 
 import { EVENT_TYPES, dayOf } from './stats.js';
 export { Stats } from './stats.js';
 import { ORDER_STATUSES } from './orders.js';
 import { payReady, payMode, startSession, validate, queryTran, paysFor, payInfo } from './payments.js';
+import { capiReady, capiPurchase, browserInfo } from './meta.js';
 export { Orders } from './orders.js';
 
 const GROQ = 'https://api.groq.com/openai/v1';
@@ -92,7 +94,8 @@ export default {
     }
     if (request.method === 'GET') {
       // Handy check after setup: open the Worker URL in a browser.
-      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN, feed: true, courier: !!(env.STEADFAST_API_KEY && env.STEADFAST_SECRET_KEY), payments: payMode(env) }, 200, cors);
+      await loadData(env).catch(() => {}); // for metaPixel (set in the admin's content settings)
+      return json({ ok: true, groqKey: !!env.GROQ_API_KEY, siteUrl: env.SITE_URL || null, adminTools: !!env.ADMIN_TOKEN, publishing: !!(env.GITHUB_TOKEN && env.GITHUB_REPO), stats: !!env.STATS, orders: !!env.ORDERS, telegram: !!env.TELEGRAM_BOT_TOKEN, feed: true, courier: !!(env.STEADFAST_API_KEY && env.STEADFAST_SECRET_KEY), payments: payMode(env), metaPixel: !!cache.metaPixel, metaCapi: !!env.META_CAPI_TOKEN }, 200, cors);
     }
     if (!okOrigin) return json({ error: 'origin not allowed' }, 403, cors);
     if (request.method !== 'POST') return json({ error: 'POST only' }, 405, cors);
@@ -202,6 +205,7 @@ async function loadData(env) {
   const dl = c.settings?.delivery || {};
   const num = (v, d) => (Number.isFinite(parseInt(v, 10)) ? Math.max(0, parseInt(v, 10)) : d);
   cache.delivery = { inside: num(dl.inside, 70), outside: num(dl.outside, 130), freeOver: num(dl.freeOver, 5000) };
+  cache.metaPixel = /^\d{6,20}$/.test(c.settings?.meta?.pixelId || '') ? c.settings.meta.pixelId : null;
   cache.products = p.products.filter((x) => !x.hidden);
   cache.faq = f.faq || [];
   cache.ids = new Set(p.products.map((x) => x.id));
@@ -508,6 +512,12 @@ function validateJson(path, text) {
     }
   }
   if (path.endsWith('faq.json') && !Array.isArray(data.faq)) throw httpError(400, 'faq.json needs a "faq" list');
+  const meta = data.settings?.meta;
+  if (path.endsWith('content.json') && meta) {
+    // The domain code is written into the page's HTML at build time, so it must be letters and digits only.
+    if (meta.pixelId && !/^\d{6,20}$/.test(meta.pixelId)) throw httpError(400, 'Meta Pixel ID: numbers only, as shown in Events Manager');
+    if (meta.domainVerification && !/^[a-z0-9]{10,64}$/i.test(meta.domainVerification)) throw httpError(400, 'Domain verification: paste just the code from the meta tag (letters and numbers)');
+  }
   const cats = data.settings?.categories;
   if (path.endsWith('content.json') && cats !== undefined) {
     if (!Array.isArray(cats) || !cats.length || cats.length > 30) throw httpError(400, 'Categories: keep between 1 and 30');
@@ -641,7 +651,7 @@ async function placeOrder(request, env, ctx) {
   if (address.length < 8) throw httpError(400, 'Please enter your full delivery address.');
   if (!payment) throw httpError(400, 'Please choose a payment method.');
 
-  const { byId, sizes, delivery } = await loadData(env);
+  const { byId, sizes, delivery, metaPixel } = await loadData(env);
   if (!Array.isArray(b.items) || !b.items.length || b.items.length > 20) throw httpError(400, 'Your bag is empty.');
   const items = [];
   for (const it of b.items) {
@@ -663,6 +673,9 @@ async function placeOrder(request, env, ctx) {
     items: JSON.stringify(items), subtotal, delivery: fee,
     promo: normalizePromo(b.promo) || null,
   };
+  // Meta purchase event: sent now for cash on delivery; for online payment, once paid (details kept until then).
+  const info = capiReady(env, metaPixel) ? browserInfo(request, b) : null;
+  if (info && payment === 'online') order.meta = JSON.stringify(info);
   const { id, duplicate, soldOut, tooMany, promoError, blocked, needAdvance, discount = 0, total } = await stub.create(order);
   if (blocked) throw httpError(400, 'We can’t take online orders for this number. Please contact us on WhatsApp.');
   if (needAdvance) throw httpError(400, mode === 'live' ? 'For this number we need advance payment. Please choose “Pay online”.' : 'For this number we need advance payment. Please choose bKash, and we’ll send the payment details.');
@@ -680,6 +693,7 @@ async function placeOrder(request, env, ctx) {
     if (unpaid && payment === 'cod') {
       ex = await stub.payByCash(id);
       ctx?.waitUntil(notifyOrder(env, stub, ex).catch((err) => console.error('telegram', err)));
+      if (info) ctx?.waitUntil(stub.takeMeta(id).then(() => capiPurchase(env, metaPixel, ex, info)));
     }
     const out = { id, subtotal: ex.subtotal, delivery: ex.delivery, discount: ex.discount || 0, promo: ex.promo, total: ex.total, items: ex.items, payment: ex.payment };
     if (unpaid && payment === 'online') return { ...out, ...(await openPayment(env, stub, ex, request, email)) };
@@ -689,6 +703,7 @@ async function placeOrder(request, env, ctx) {
   // Online: the shop hears about it once it's paid (pay-return / pay-ipn), not now.
   if (payment === 'online') return { ...out, ...(await openPayment(env, stub, await stub.getOrder(id), request, email)) };
   ctx?.waitUntil(notifyOrder(env, stub, { ...order, id, items, discount, total }).catch((err) => console.error('telegram', err)));
+  if (info) ctx?.waitUntil(capiPurchase(env, metaPixel, { ...order, id, items, total }, info));
   return out;
 }
 
@@ -716,8 +731,13 @@ async function confirmPayment(env, stub, order, valId, ctx) {
     console.warn('payment not valid', order.id, v.status, v.tran_id, v.amount);
     return false;
   }
-  const r = await stub.markPaid(order.id, { ...payInfo(v), ...(payMode(env) === 'sandbox' ? { test: true } : {}) });
-  if (r && !r.already) ctx?.waitUntil(notifyOrder(env, stub, r.order).catch((err) => console.error('telegram', err)));
+  const test = payMode(env) === 'sandbox';
+  const r = await stub.markPaid(order.id, { ...payInfo(v), ...(test ? { test: true } : {}) });
+  if (r && !r.already) {
+    ctx?.waitUntil(notifyOrder(env, stub, r.order).catch((err) => console.error('telegram', err)));
+    // Meta purchase event (not for SSLCommerz test payments); the stored browser details are deleted after.
+    ctx?.waitUntil(stub.takeMeta(order.id).then(async (info) => { if (!test) await capiPurchase(env, (await loadData(env)).metaPixel, r.order, info); }));
+  }
   return true;
 }
 
@@ -779,6 +799,7 @@ async function payCod(request, env, ctx) {
   const { stub, order } = await ownUnpaid(request, env);
   const o = await stub.payByCash(order.id);
   ctx?.waitUntil(notifyOrder(env, stub, o).catch((err) => console.error('telegram', err)));
+  ctx?.waitUntil(stub.takeMeta(o.id).then(async (info) => capiPurchase(env, (await loadData(env)).metaPixel, o, info)));
   return { ok: true, total: o.total };
 }
 
@@ -794,6 +815,7 @@ async function expireUnpaid(env, ctx) {
       for (let n = 1; n <= (order.pay_tries || 0); n++) trans.push(...(await queryTran(env, `${o.id}-${n}`)));
       const ok = trans.find((t) => paysFor(t, order));
       if (ok && await confirmPayment(env, stub, order, ok.val_id, ctx)) continue;
+      await stub.takeMeta(o.id); // never paid: no Meta event, the browser details go
       await stub.update(o.id, { status: 'cancelled', admin_note: [order.admin_note, 'Cancelled automatically: online payment not completed within an hour.'].filter(Boolean).join('\n') });
     } catch (err) { console.error('expire', o.id, err.message); }
   }

@@ -485,6 +485,10 @@ const TEXT_FIELDS = [
     ['settings.eid.date', 'Last day to order for Eid delivery', '', false, 'date'],
     ['settings.eid.label', 'Occasion name', 'Eid'],
   ] },
+  { group: 'Facebook & Instagram ads', help: 'The Meta Pixel tells Facebook and Instagram ads who views, adds to bag and buys, so ads can find buyers and retarget. Leave the Pixel ID empty to turn it off. Purchases are also sent from the server when the META_CAPI_TOKEN secret is set in Cloudflare.', fields: [
+    ['settings.meta.pixelId', 'Meta Pixel ID (numbers, from Events Manager)', 'e.g. 123456789012345'],
+    ['settings.meta.domainVerification', 'Facebook domain verification code (paste the meta tag or just its code)', 'e.g. abc123def456ghi789'],
+  ] },
   { group: 'Social links', fields: [['settings.socials.facebook', 'Facebook'], ['settings.socials.instagram', 'Instagram'], ['settings.socials.tiktok', 'TikTok']] },
   { group: 'Homepage', fields: [
     ['texts.hero.eyebrow', 'Hero: small line above the title'],
@@ -536,6 +540,12 @@ function etaPreview() {
 $('[data-texts]').addEventListener('input', (e) => {
   const path = e.target.dataset.path;
   if (!path) return;
+  // A whole <meta name="facebook-domain-verification" content="…"> tag pasted in: keep just the code.
+  if (path === 'settings.meta.domainVerification') {
+    const code = (e.target.value.match(/content=["']?([a-z0-9]+)/i) || [])[1];
+    if (code) e.target.value = code;
+  }
+  if (path === 'settings.meta.pixelId') e.target.value = e.target.value.replace(/\D/g, '');
   setVal(path, e.target.value);
   markDirty('content');
   if (path.startsWith('settings.delivery.')) etaPreview();
