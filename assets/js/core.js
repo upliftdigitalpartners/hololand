@@ -8,6 +8,7 @@ import { renderLayout, refreshCategoryLinks } from './layout.js';
 import { initStore } from './shop.js';
 import { applyContent } from './content.js';
 import { initPixel } from './pixel.js';
+import { initSearch } from './search.js';
 
 const { gsap, ScrollTrigger, SplitText, Lenis } = window;
 gsap.registerPlugin(ScrollTrigger, SplitText);
@@ -242,6 +243,7 @@ export async function boot(page, init) {
     await stockLoaded(); // so cards and sizes show what's sold out
     applyStatic();
     initStore(products);
+    initSearch(products);
     track('view', page === 'product' ? { product: new URLSearchParams(location.search).get('id') || undefined } : {});
     const ctx = { products, gsap, ScrollTrigger, SplitText, lenis, getWeather };
     const result = (await init?.(ctx)) || {};

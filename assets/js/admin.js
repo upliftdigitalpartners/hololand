@@ -853,6 +853,13 @@ $('[data-tab="stats"]').addEventListener('click', loadStats);
 const STATUS = {
   new: 'New', confirmed: 'Confirmed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', returned: 'Returned',
 };
+/** The one obvious next step for an order: New → Confirm, Confirmed → Shipped, Shipped → Delivered. */
+const NEXT = { new: ['confirmed', '✓ Confirm order'], confirmed: ['shipped', '📦 Mark shipped'], shipped: ['delivered', '✅ Mark delivered'] };
+function nextStepHTML(o) {
+  if (o.payment === 'online' && o.pay_status !== 'paid' && o.status === 'new') return '<span class="onext-wait">⏳ Waiting for online payment</span>';
+  const n = NEXT[o.status];
+  return n ? `<button class="btn btn--solid btn--sm onext" data-onext="${n[0]}"><span>${n[1]}</span></button>` : '';
+}
 const ord = { status: '', q: '', list: [], counts: {}, more: false, lastNew: null, loading: false };
 const taka = (n) => `${CONFIG.currency}${nf.format(n || 0)}`;
 /* Payment: cash on delivery, manual bKash, or online through SSLCommerz (paid or not yet). */
@@ -948,7 +955,8 @@ function renderOrders() {
       ${courierHTML(o)}
       <label class="f ocard__admin"><span>Your note (only you see this)</span><input data-onote value="${esc(o.admin_note || '')}" maxlength="500" placeholder="e.g. paid by bKash, courier tracking no." /></label>
       <footer class="ocard__foot">
-        <a class="btn btn--solid btn--sm" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(confirmMsg)}" target="_blank" rel="noopener"><span>WhatsApp customer</span></a>
+        ${nextStepHTML(o)}
+        <a class="btn btn--ghost btn--sm" href="https://wa.me/${esc(wa)}?text=${encodeURIComponent(confirmMsg)}" target="_blank" rel="noopener"><span>WhatsApp customer</span></a>
         <a class="btn btn--ghost btn--sm" href="tel:+88${esc(o.phone)}"><span>Call</span></a>
         ${['new', 'confirmed'].includes(o.status) && !o.consignment_id ? '<button class="link-btn" data-oedit>Edit</button>' : ''}
         <button class="link-btn" data-oprint="invoice">🖨 Invoice</button>
@@ -1043,6 +1051,19 @@ $('[data-olist]').addEventListener('click', async (e) => {
     btn.disabled = false;
     if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`, 6000);
   }
+});
+
+$('[data-olist]').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-onext]');
+  if (!btn) return;
+  const o = findOrder(btn);
+  btn.disabled = true;
+  try {
+    await api('/admin/order-update', { id: o.id, status: btn.dataset.onext });
+    o.status = btn.dataset.onext;
+    toast(`${o.id} → ${STATUS[o.status]}`);
+    loadOrders({ quiet: true }); // redraws the card with its next step, and refreshes counts
+  } catch (err) { btn.disabled = false; if (err.message !== 'Signed out') toast(`⚠️ ${err.message}`); }
 });
 
 $('[data-olist]').addEventListener('change', async (e) => {

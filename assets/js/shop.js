@@ -196,6 +196,14 @@ function renderBag() {
   badge.classList.toggle('has-items', count > 0);
   $('[data-bag-total]').textContent = money(bagTotal());
   $('[data-checkout]').disabled = !count;
+  // How far to free delivery (set in the admin; 0 = never free).
+  const free = delivery().freeOver, sub = bagTotal();
+  $('[data-freebar]').hidden = !count || !free;
+  if (count && free) {
+    $('[data-freebar-text]').innerHTML = sub >= free ? '🎉 <strong>You’ve got free delivery!</strong>' : `Add <strong>${money(free - sub)}</strong> more for <strong>free delivery</strong>`;
+    $('[data-freebar-fill]').style.width = `${Math.min(100, (sub / free) * 100).toFixed(1)}%`;
+    $('[data-freebar]').classList.toggle('is-done', sub >= free);
+  }
   $('[data-gift-note]').hidden = !giftNote;
   $('[data-gift-note-text]').textContent = giftNote;
   $('[data-bag-items]').innerHTML = count ? bag.map((l, i) => {
@@ -314,6 +322,15 @@ const placeLabel = () => {
 };
 
 const REMEMBER = 'hl.customer';
+/** Orders placed on this device, newest first (the Track page lists them, so nothing needs typing). */
+export const MY_ORDERS = 'hl.orders';
+function rememberOrder(data, phone) {
+  try {
+    const list = JSON.parse(localStorage.getItem(MY_ORDERS) || '[]').filter((o) => o.id !== data.id);
+    list.unshift({ id: data.id, phone, ts: Date.now(), total: data.total, n: (data.items || []).reduce((n, l) => n + l.qty, 0) });
+    localStorage.setItem(MY_ORDERS, JSON.stringify(list.slice(0, 10)));
+  } catch { /* ignore */ }
+}
 function checkout() {
   if (!bag.length) return;
   if (!CONFIG.stylistEndpoint) { whatsappCheckout(); return; }
@@ -334,6 +351,47 @@ function checkout() {
   setTimeout(() => (f.elements.name.value ? f.elements.phone : f.elements.name).focus({ preventScroll: true }), 350);
 }
 
+/* Checkout fields are checked as the customer types, with the message right under each field
+   (errors after they leave a field, or once they try to order; a ✓ as soon as the phone number is right). */
+const FIELDS = ['name', 'phone', 'area', 'address'];
+const touched = new Set();
+function fieldCheck(f, k) {
+  const v = (f.elements[k]?.value || '').trim();
+  if (k === 'name') return v.length >= 2 ? ['', true] : [v ? 'Please enter your full name.' : 'Please enter your name.', false];
+  if (k === 'area') return f.elements.area.value ? ['', true] : ['Please choose your delivery area.', false];
+  if (k === 'address') return v.length >= 8 ? ['', true] : [v ? 'Please add a bit more: house, road and area.' : 'Please enter your full delivery address.', false];
+  const d = v.replace(/[০-৯]/g, (c) => BN.indexOf(c)).replace(/\D/g, '').replace(/^88(?=01)/, '');
+  if (!d) return ['Please enter your mobile number.', false];
+  if (!d.startsWith('01')) return ['Mobile numbers start with 01, like 01712345678.', false];
+  if (d.length < 11) return [`${11 - d.length} more digit${11 - d.length === 1 ? '' : 's'} needed (11 in total).`, false];
+  if (d.length > 11) return ['That’s more than 11 digits. Please check the number.', false];
+  if (!normalizePhone(d)) return ['That doesn’t look like a Bangladeshi mobile number.', false];
+  return ['✓ Looks good', true];
+}
+function showField(f, k) {
+  const [msg, ok] = fieldCheck(f, k);
+  const el = $(`[data-msg="${k}"]`);
+  el.textContent = msg;
+  el.className = `cf__msg${ok ? (msg ? ' is-ok' : '') : ' is-err'}`;
+  if (k === 'area') el.closest('.cf').classList.toggle('is-invalid', !ok);
+  else { f.elements[k].classList.toggle('is-invalid', !ok); f.elements[k].setAttribute('aria-invalid', String(!ok)); }
+  return ok;
+}
+function setupFieldChecks(f) {
+  f.addEventListener('focusout', (e) => {
+    const k = e.target.name;
+    if (!['name', 'phone', 'address'].includes(k) || !e.target.value.trim()) return;
+    touched.add(k); showField(f, k);
+  });
+  f.addEventListener('input', (e) => {
+    const k = e.target.name;
+    if (!['name', 'phone', 'address'].includes(k)) return;
+    if (touched.has(k)) showField(f, k);
+    else if (k === 'phone' && fieldCheck(f, 'phone')[1]) showField(f, 'phone');
+  });
+  f.addEventListener('change', (e) => { if (e.target.name === 'area') showField(f, 'area'); });
+}
+
 function coError(msg, withWa) {
   const el = $('[data-co-error]');
   el.hidden = !msg;
@@ -351,11 +409,15 @@ async function placeOrder(e) {
   const f = e.currentTarget;
   const v = (k) => f.elements[k].value.trim();
   const phone = normalizePhone(v('phone'));
-  const fail = (msg, field) => { coError(msg); if (field) f.elements[field].focus?.(); };
-  if (v('name').length < 2) return fail('Please enter your name.', 'name');
-  if (!phone) return fail('Please enter a valid mobile number, like 01712345678.', 'phone');
-  if (!f.elements.area.value) return fail('Please choose your delivery area.');
-  if (v('address').length < 8) return fail('Please enter your full delivery address.', 'address');
+  // Every field shows its own message; the first one to fix is brought into view.
+  const bad = FIELDS.filter((k) => { touched.add(k); return !showField(f, k); });
+  if (bad.length) {
+    coError(`Please check the highlighted field${bad.length > 1 ? 's' : ''} above.`);
+    const el = bad[0] === 'area' ? f.querySelector('[name="area"]') : f.elements[bad[0]];
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.focus({ preventScroll: true });
+    return;
+  }
   coError('');
 
   const btn = $('[data-place-order]');
@@ -377,6 +439,7 @@ async function placeOrder(e) {
       else localStorage.removeItem(REMEMBER);
     } catch { /* ignore */ }
     track('order', { value: data.total });
+    rememberOrder(data, phone);
     if (body.payment === 'online' && data.payment !== 'cod') {
       // The order is saved (unpaid). Off to SSLCommerz; it sends the customer back to the tracking page.
       try { sessionStorage.setItem('hl.lastOrder', JSON.stringify({ id: data.id, phone: body.phone })); } catch { /* ignore */ }
@@ -481,6 +544,7 @@ export function initStore(list) {
   $('[data-checkout]').addEventListener('click', checkout);
   $('[data-checkout-back]').addEventListener('click', () => showView('bag'));
   $('[data-checkout-form]').addEventListener('submit', placeOrder);
+  setupFieldChecks($('[data-checkout-form]'));
   $('[data-promo-apply]').addEventListener('click', applyPromo);
   $('[data-checkout-form]').elements.promo.addEventListener('input', (e) => {
     // Editing the code un-applies it until Apply is tapped again.
