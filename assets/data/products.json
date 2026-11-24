@@ -644,7 +644,8 @@
         "pastel",
         "gift"
       ],
-      "desc": "A dusty rose mock-neck in a soft, fine-gauge knit. A cosy layer for winter afternoons."
+      "desc": "A dusty rose mock-neck in a soft, fine-gauge knit. A cosy layer for winter afternoons.",
+      "sale_price": 700
     },
     {
       "id": "wk-cobalt",
@@ -666,7 +667,8 @@
         "bold",
         "travel"
       ],
-      "desc": "A bold cobalt crew-neck with ribbed trims. Good for Sylhet trips and cool Chittagong evenings by the sea."
+      "desc": "A bold cobalt crew-neck with ribbed trims. Good for Sylhet trips and cool Chittagong evenings by the sea.",
+      "sale_price": 700
     },
     {
       "id": "wk-ivory",
@@ -690,7 +692,8 @@
         "gift",
         "office"
       ],
-      "desc": "A clean ivory funnel-neck that pairs with everything from jeans to a shalwar."
+      "desc": "A clean ivory funnel-neck that pairs with everything from jeans to a shalwar.",
+      "sale_price": 700
     },
     {
       "id": "wk-lilac",
@@ -712,7 +715,8 @@
         "pastel",
         "gift"
       ],
-      "desc": "A dreamy lilac mock-neck. Soft colour for soft days."
+      "desc": "A dreamy lilac mock-neck. Soft colour for soft days.",
+      "sale_price": 700
     },
     {
       "id": "wk-sky",
@@ -733,7 +737,8 @@
         "pastel",
         "day"
       ],
-      "desc": "A light sky blue with a neat mock collar. Easy and fresh."
+      "desc": "A light sky blue with a neat mock collar. Easy and fresh.",
+      "sale_price": 700
     },
     {
       "id": "wk-fuchsia",
@@ -755,7 +760,8 @@
         "party",
         "gift"
       ],
-      "desc": "A statement fuchsia that lifts every winter outfit."
+      "desc": "A statement fuchsia that lifts every winter outfit.",
+      "sale_price": 700
     }
   ]
 }
